@@ -546,15 +546,32 @@
       <div class="modal-title">Link de Visualização</div>
     </div>
     <div class="modal-body">
-      <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px;">Compartilhe este link para permitir <strong>visualização somente leitura</strong> do painel atual. O link contém um snapshot dos dados neste momento.</p>
-      <div class="share-url" id="share-url"></div>
+      <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px;">Compartilhe este link para permitir <strong>visualização somente leitura</strong> do painel atual.</p>
+
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
+          Link curto
+          <button class="btn btn-primary btn-sm" onclick="copyShareLink('short')" style="font-size:11px;padding:3px 10px;">
+            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copiar
+          </button>
+        </div>
+        <div class="share-url" id="share-url-short" style="color:var(--red);font-size:13px;"></div>
+      </div>
+
+      <div>
+        <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between;">
+          Link completo
+          <button class="btn btn-outline btn-sm" onclick="copyShareLink('long')" style="font-size:11px;padding:3px 10px;">
+            <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            Copiar
+          </button>
+        </div>
+        <div class="share-url" id="share-url"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('share-modal')">Fechar</button>
-      <button class="btn btn-primary" onclick="copyShareLink()">
-        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-        Copiar Link
-      </button>
     </div>
   </div>
 </div>
@@ -1101,22 +1118,39 @@ function safeB64Decode(str) {
 }
 function generateShareLink() {
   const encoded = encodeURIComponent(safeB64Encode(JSON.stringify(state)));
-  const url = `${location.origin}${location.pathname}?mode=view&data=${encoded}`;
-  document.getElementById('share-url').textContent = url;
+  const longUrl = `${location.origin}${location.pathname}?mode=view&data=${encoded}`;
+  document.getElementById('share-url').textContent = longUrl;
+  document.getElementById('share-url-short').textContent = 'Gerando link curto...';
   document.getElementById('share-modal').style.display = 'flex';
+
+  // Shorten via TinyURL
+  fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`)
+    .then(r => r.text())
+    .then(short => {
+      document.getElementById('share-url-short').textContent = short;
+    })
+    .catch(() => {
+      document.getElementById('share-url-short').textContent = '(não foi possível gerar link curto)';
+    });
 }
-function copyShareLink() {
-  const url = document.getElementById('share-url').textContent;
+
+function copyShareLink(type) {
+  const elId = type === 'short' ? 'share-url-short' : 'share-url';
+  const url = document.getElementById(elId).textContent;
+  if (!url || url.startsWith('Gerando') || url.startsWith('(')) {
+    showToast('Link curto ainda não disponível');
+    return;
+  }
   navigator.clipboard.writeText(url).then(() => {
     showToast('Link copiado ✓');
     closeModal('share-modal');
   }).catch(() => {
-    const el = document.getElementById('share-url');
+    const el = document.getElementById(elId);
     const range = document.createRange();
     range.selectNode(el);
     window.getSelection().removeAllRanges();
     window.getSelection().addRange(range);
-    showToast('Selecione e copie o link manualmente');
+    showToast('Selecione e copie manualmente');
   });
 }
 
