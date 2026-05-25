@@ -558,6 +558,48 @@
     width: 8px; height: 8px; border-radius: 50%;
   }
 
+  /* ── AMBIENTE BADGE ── */
+  .amb-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+  }
+  .amb-topcon   { background:#1a2a5e; color:#fff; border-color:#2e45a0; }
+  .amb-batch    { background:#7c1d1d; color:#fff; border-color:#cc1f1f; }
+
+  /* Progress bar ambiente indicators */
+  .prog-amb-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .prog-amb-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #ffffffaa;
+    white-space: nowrap;
+  }
+  .prog-amb-item strong {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    margin-right: 2px;
+  }
+  .prog-amb-dot {
+    width: 8px; height: 8px; border-radius: 2px;
+  }
+
   /* Toast */
   #toast {
     position: fixed;
@@ -646,6 +688,17 @@
     </div>
   </div>
   <div class="progress-divider"></div>
+  <div class="prog-amb-group">
+    <div class="prog-amb-item">
+      <div class="prog-amb-dot" style="background:#1a2a5e;border:1px solid #4eb8e8;"></div>
+      <strong id="prog-a-topcon">0</strong> Topcon
+    </div>
+    <div class="prog-amb-item">
+      <div class="prog-amb-dot" style="background:#7c1d1d;border:1px solid #cc1f1f;"></div>
+      <strong id="prog-a-batch">0</strong> TopconBATCH
+    </div>
+  </div>
+  <div class="progress-divider"></div>
   <div class="progress-track">
     <div class="progress-fill" id="prog-fill" style="width:0%"></div>
   </div>
@@ -703,11 +756,18 @@
         <label>Grupo</label>
         <select id="cm-group"></select>
       </div>
-      <div class="field" style="margin-bottom:0">
+      <div class="field">
         <label>Status</label>
         <select id="cm-status">
           <option value="planejado">⬤ Planejado</option>
           <option value="andamento">⬤ Em andamento</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Ambiente</label>
+        <select id="cm-ambiente">
+          <option value="topcon">Topcon</option>
+          <option value="batch">TopconBATCH</option>
         </select>
       </div>
     </div>
@@ -936,6 +996,12 @@ function updateProgress() {
   document.getElementById('prog-s-plan').textContent = sPlan;
   document.getElementById('prog-s-and').textContent  = sAnd;
   document.getElementById('prog-s-conc').textContent = sConc;
+
+  const allC = [...state.centrals, ...state.completed];
+  const aTopcon = allC.filter(c => (c.ambiente || 'topcon') === 'topcon').length;
+  const aBatch  = allC.filter(c => c.ambiente === 'batch').length;
+  document.getElementById('prog-a-topcon').textContent = aTopcon;
+  document.getElementById('prog-a-batch').textContent  = aBatch;
 }
 
 function render() {
@@ -1041,10 +1107,18 @@ function renderCard(central, group) {
   const chevron = isViewMode ? '' : '<svg width="8" height="8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="margin-left:3px;opacity:0.5;"><polyline points="6 9 12 15 18 9"/></svg>';
   const clickAttr = isViewMode ? '' : 'onclick="cycleStatus(\'' + central.id + '\')" title="Clique para alterar" style="cursor:pointer;"';
   const statusBadge = '<div class="status-badge status-' + st + '" ' + clickAttr + '><div class="status-dot"></div>' + stLabel + chevron + '</div>';
+  const amb = central.ambiente || 'topcon';
+  const ambLabel = amb === 'batch' ? 'TopconBATCH' : 'Topcon';
+  const ambChevron = isViewMode ? '' : '<svg width="8" height="8" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="margin-left:3px;opacity:0.5;"><polyline points="6 9 12 15 18 9"/></svg>';
+  const ambClick = isViewMode ? '' : 'onclick="cycleAmbiente(\'' + central.id + '\')" title="Clique para alterar ambiente" style="cursor:pointer;"';
+  const ambBadge = '<div class="amb-badge amb-' + (amb === 'batch' ? 'batch' : 'topcon') + '" ' + ambClick + '>' + ambLabel + ambChevron + '</div>';
 
   return `
     <div class="card" id="card-${central.id}" ${draggableAttr} style="border-left-color:${stripe}">
-      ${statusBadge}
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:5px;">
+        ${statusBadge}
+        ${ambBadge}
+      </div>
       <div class="card-name">${escHtml(central.name)}</div>
       <div class="card-date">
         <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -1193,6 +1267,7 @@ function openCentralModal(preGroupId) {
   document.getElementById('cm-name').value = '';
   document.getElementById('cm-date').value = '';
   document.getElementById('cm-status').value = 'planejado';
+  document.getElementById('cm-ambiente').value = 'topcon';
   populateGroupSelect(preGroupId || (state.groups[0] && state.groups[0].id));
   document.getElementById('central-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('cm-name').focus(), 50);
@@ -1205,6 +1280,7 @@ function openEditCentral(id) {
   document.getElementById('cm-name').value = c.name;
   document.getElementById('cm-date').value = c.goLiveDate || '';
   document.getElementById('cm-status').value = c.status || 'planejado';
+  document.getElementById('cm-ambiente').value = c.ambiente || 'topcon';
   populateGroupSelect(c.groupId);
   document.getElementById('central-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('cm-name').focus(), 50);
@@ -1228,17 +1304,18 @@ function saveCentral() {
   const date = document.getElementById('cm-date').value;
   const groupId = document.getElementById('cm-group').value;
   const status = document.getElementById('cm-status').value;
+  const ambiente = document.getElementById('cm-ambiente').value;
   if (!name) { showToast('⚠ Informe o nome da central'); return; }
   if (!groupId) { showToast('⚠ Crie um grupo primeiro'); return; }
   if (editingCentralId) {
     const c = state.centrals.find(x => x.id === editingCentralId);
     const oldGroupId = c.groupId;
-    c.name = name; c.goLiveDate = date; c.groupId = groupId; c.status = status;
+    c.name = name; c.goLiveDate = date; c.groupId = groupId; c.status = status; c.ambiente = ambiente;
     recalcGroupDates(oldGroupId);
     if (oldGroupId !== groupId) recalcGroupDates(groupId);
     showToast('Central atualizada ✓');
   } else {
-    state.centrals.push({ id: uid(), name, goLiveDate: date, groupId, status });
+    state.centrals.push({ id: uid(), name, goLiveDate: date, groupId, status, ambiente });
     recalcGroupDates(groupId);
     showToast('Central criada ✓');
   }
@@ -1252,7 +1329,15 @@ function cycleStatus(id) {
   const idx = cycle.indexOf(c.status || 'planejado');
   c.status = cycle[(idx + 1) % cycle.length];
   save(); render();
-  showToast(`Status: ${({planejado:'Planejado',andamento:'Em andamento'})[c.status]} ✓`);
+  showToast('Status: ' + ({planejado:'Planejado',andamento:'Em andamento'})[c.status] + ' ✓');
+}
+
+function cycleAmbiente(id) {
+  const c = state.centrals.find(x => x.id === id);
+  if (!c) return;
+  c.ambiente = (c.ambiente || 'topcon') === 'topcon' ? 'batch' : 'topcon';
+  save(); render();
+  showToast('Ambiente: ' + (c.ambiente === 'batch' ? 'TopconBATCH' : 'Topcon') + ' ✓');
 }
 
 // ===== COMPLETE =====
