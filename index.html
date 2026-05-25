@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concrelongo · Go Live Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Barlow+Condensed:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    /* Concrelongo: azul marinho, vermelho, laranja vibrante */
+    --navy:    #1a2a5e;   /* azul escuro Concrelongo */
+    --navy2:   #243575;
+    --blue:    #1a2a5e;
+    --blue2:   #2e45a0;
+    --sky:     #5b78d4;
+    --red:     #cc1f1f;   /* vermelho Concrelongo */
+    --red2:    #e02020;
+    --orange:  #f5a623;   /* laranja do caminhão */
+    --orange2: #e8921a;
+    --bg:      #f0f2f8;
+    --surface: #ffffff;
+    --surface2:#edf0f9;
+    --border:  #d0d6ea;
+    --border2: #b0bad8;
+    --green:   #16a34a;
+    --text:    #1a2a5e;
+    --text2:   #3a4a80;
+    --text3:   #7a88b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    background-image: radial-gradient(#1a2a5e0a 1px, transparent 1px);
+    background-size: 24px 24px;
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    min-height: 100vh;
+    overflow-x: auto;
+  }
+  ::-webkit-scrollbar { height: 6px; width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── HEADER ── */
+  .header {
+    background: linear-gradient(90deg, #1a2a5e 0%, #243575 60%, #2e45a0 100%);
+    padding: 0 0 0 24px;
+    height: 68px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 3px 16px #1a2a5e55;
+    border-bottom: 3px solid var(--red);
+  }
+
+  /* Topcon SVG logo inline */
+  .logo-area { display: flex; align-items: center; gap: 14px; }
+  .logo-icon { width: 36px; height: 36px; flex-shrink: 0; }
+  .logo-text { display: flex; flex-direction: column; }
+  .logo-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+  .logo-sub {
+    font-size: 9px;
+    font-weight: 600;
+    color: var(--sky);
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .logo-divider {
+    width: 1px; height: 32px;
+    background: #ffffff22;
+    margin: 0 16px;
+  }
+  .header-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #ffffffaa;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .view-badge {
+    background: #f5a62322;
+    border: 1px solid var(--orange);
+    color: var(--orange);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    font-family: 'Barlow', sans-serif;
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+  .btn-primary {
+    background: var(--red);
+    color: #fff;
+    border-color: var(--red);
+  }
+  .btn-primary:hover { background: var(--red2); border-color: var(--red2); }
+
+  .btn-secondary {
+    background: #ffffff12;
+    color: #ffffffcc;
+    border-color: #ffffff30;
+  }
+  .btn-secondary:hover { border-color: var(--orange); color: var(--orange); background: #f5a62318; }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--navy);
+    border-color: var(--border2);
+  }
+  .btn-outline:hover { border-color: var(--navy); background: var(--surface2); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--text3);
+    border: none;
+    padding: 4px 8px;
+    font-weight: 500;
+  }
+  .btn-ghost:hover { color: var(--navy); background: var(--surface2); border-radius: 4px; }
+
+  .btn-danger { background: transparent; color: var(--red); border-color: #dc262633; }
+  .btn-danger:hover { background: #fef2f2; border-color: var(--red); }
+
+  .btn-green { background: var(--green); color: #fff; border-color: var(--green); }
+  .btn-green:hover { background: #15803d; }
+
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+  /* ── BOARD ── */
+  .board-wrap {
+    padding: 20px 24px 48px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    min-height: calc(100vh - 71px);
+    overflow-x: auto;
+  }
+
+  /* ── COLUMNS ── */
+  .column {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    width: 300px;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 111px);
+    overflow: hidden;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-shadow: 0 1px 4px #0f2a4a0d;
+  }
+  .column.drag-over {
+    border-color: var(--orange);
+    box-shadow: 0 0 0 3px #f5a62328;
+  }
+  .column-header {
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    background: linear-gradient(135deg, #edf0f9 0%, var(--surface) 100%);
+  }
+  .column-stripe {
+    height: 3px;
+    border-radius: 10px 10px 0 0;
+    background: var(--blue2);
+    margin: -14px -14px 12px;
+  }
+  .column-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--navy);
+    letter-spacing: 0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .column-dates {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text3);
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .column-count {
+    background: var(--navy);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+    margin-left: auto;
+    letter-spacing: 0.05em;
+  }
+  .column-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .column-cards {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 10px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 60px;
+  }
+  .column-add {
+    padding: 8px 10px 10px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    background: var(--surface2);
+  }
+  .column-add .btn { width: 100%; justify-content: center; }
+
+  /* Completed column */
+  .column-completed { border-color: #bbf7d0; }
+  .column-completed .column-stripe { background: var(--green); }
+  .column-completed .column-header { background: linear-gradient(135deg, #f0fdf4 0%, var(--surface) 100%); }
+  .column-completed .column-title { color: var(--green); }
+  .column-completed .column-count { background: var(--green); }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--red);
+    border-radius: 8px;
+    padding: 12px;
+    cursor: grab;
+    transition: all 0.15s;
+    user-select: none;
+    box-shadow: 0 1px 3px #0f2a4a0a;
+  }
+  .card:hover {
+    border-color: var(--blue2);
+    box-shadow: 0 3px 10px #1e6fa522;
+    transform: translateY(-1px);
+  }
+  .card.dragging {
+    opacity: 0.45;
+    cursor: grabbing;
+    transform: rotate(1.5deg) scale(0.97);
+  }
+  .card-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 6px;
+    line-height: 1.35;
+  }
+  .card-date {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .card-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+  .card-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  /* ── MODALS ── */
+  .modal-backdrop {
+    position: fixed; inset: 0;
+    background: #0f2a4a99;
+    backdrop-filter: blur(4px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0;
+    width: 100%;
+    max-width: 420px;
+    box-shadow: 0 24px 64px #0f2a4a44;
+    animation: modalIn 0.15s ease;
+    overflow: hidden;
+  }
+  @keyframes modalIn {
+    from { opacity:0; transform: scale(0.96) translateY(10px); }
+    to { opacity:1; transform: scale(1) translateY(0); }
+  }
+  .modal-header {
+    background: var(--navy);
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .modal-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.02em;
+  }
+  .modal-title-accent { color: var(--sky); }
+  .modal-body { padding: 24px; }
+
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .field input, .field select {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 12px;
+    font-size: 13px;
+    color: var(--navy);
+    font-family: 'Barlow', sans-serif;
+    font-weight: 500;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  .field input:focus, .field select:focus {
+    border-color: var(--navy2);
+    box-shadow: 0 0 0 3px #1a2a5e18;
+    background: #fff;
+  }
+  .field select option { background: #fff; }
+
+  .modal-footer {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+  }
+
+  /* Share modal */
+  .share-url {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--blue2);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--blue);
+    word-break: break-all;
+    margin: 0 0 4px;
+    max-height: 80px;
+    overflow-y: auto;
+    line-height: 1.7;
+  }
+
+  /* Empty state */
+  .empty-board {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 40px;
+    text-align: center;
+    min-width: 400px;
+  }
+  .empty-icon { font-size: 52px; margin-bottom: 16px; opacity: 0.25; }
+  .empty-board h3 { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+  .empty-board p { font-size: 13px; color: var(--text2); line-height: 1.7; max-width: 320px; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--navy);
+    color: #fff;
+    padding: 11px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    z-index: 999;
+    display: none;
+    box-shadow: 0 4px 20px #0f2a4a44;
+    border-left: 3px solid var(--red);
+  }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo-area">
+    <div class="logo-text">
+      <span class="logo-name">TOPCON</span>
+      <span class="logo-sub">The Concrete Suite</span>
+    </div>
+    <div class="logo-divider"></div>
+    <div class="logo-text">
+      <span class="logo-name" style="font-size:18px;letter-spacing:0.06em;">CONCRELONGO</span>
+      <span class="logo-sub" style="color:#f5a623;letter-spacing:0.14em;">Go Live Manager</span>
+    </div>
+  </div>
+
+  <div id="header-controls" style="display:flex;gap:8px;align-items:center;padding-right:24px;">
+    <button class="btn btn-secondary admin-only" onclick="openGroupModal()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Novo Grupo
+    </button>
+    <button class="btn btn-primary admin-only" onclick="openCentralModal()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nova Central
+    </button>
+    <button class="btn btn-secondary admin-only" onclick="openGantt()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="8" y1="4" x2="8" y2="20"/></svg>
+      Gantt
+    </button>
+    <button class="btn btn-secondary admin-only" onclick="generateShareLink()">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      Gerar Link
+    </button>
+    <div id="view-badge" class="view-badge" style="display:none;">👁 Visualização</div>
+  </div>
+</header>
+
+<!-- BOARD -->
+<div class="board-wrap" id="board"></div>
+
+<!-- GROUP MODAL -->
+<div class="modal-backdrop" id="group-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <svg width="16" height="16" fill="none" stroke="var(--sky)" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <div class="modal-title"><span id="group-modal-title">Novo Grupo</span></div>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nome do Grupo</label>
+        <input type="text" id="gm-name" placeholder="Ex: Região Sul — Fase 1">
+      </div>
+      <div class="field">
+        <label>Data Início Go Live</label>
+        <input type="date" id="gm-start">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Data Fim Go Live</label>
+        <input type="date" id="gm-end">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('group-modal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveGroup()">Salvar Grupo</button>
+    </div>
+  </div>
+</div>
+
+<!-- CENTRAL MODAL -->
+<div class="modal-backdrop" id="central-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <svg width="16" height="16" fill="none" stroke="var(--sky)" stroke-width="2.5" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+      <div class="modal-title"><span id="central-modal-title">Nova Central</span></div>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Nome da Central</label>
+        <input type="text" id="cm-name" placeholder="Ex: Central Curitiba Norte">
+      </div>
+      <div class="field">
+        <label>Previsão de Go Live</label>
+        <input type="date" id="cm-date">
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Grupo</label>
+        <select id="cm-group"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('central-modal')">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveCentral()">Salvar Central</button>
+    </div>
+  </div>
+</div>
+
+<!-- SHARE MODAL -->
+<div class="modal-backdrop" id="share-modal" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <svg width="16" height="16" fill="none" stroke="var(--sky)" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+      <div class="modal-title">Link de Visualização</div>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:14px;">Compartilhe este link para permitir <strong>visualização somente leitura</strong> do painel atual. O link contém um snapshot dos dados neste momento.</p>
+      <div class="share-url" id="share-url"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('share-modal')">Fechar</button>
+      <button class="btn btn-primary" onclick="copyShareLink()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        Copiar Link
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-backdrop" id="confirm-modal" style="display:none;">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header" style="background:#7f1d1d;">
+      <svg width="16" height="16" fill="none" stroke="#fca5a5" stroke-width="2.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      <div class="modal-title" style="color:#fca5a5;">Confirmar Exclusão</div>
+    </div>
+    <div class="modal-body">
+      <p id="confirm-text" style="font-size:13px;color:var(--text2);line-height:1.7;"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('confirm-modal')">Cancelar</button>
+      <button class="btn btn-danger" id="confirm-btn" onclick="confirmDeleteAction()">Confirmar Exclusão</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let state = { groups: [], centrals: [], completed: [] };
+let isViewMode = false;
+let editingGroupId = null;
+let editingCentralId = null;
+let pendingDeleteType = null;
+let pendingDeleteId = null;
+let draggedCard = null;
+
+// ===== INIT =====
+function init() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('mode') === 'view' && params.get('data')) {
+    isViewMode = true;
+    try {
+      state = JSON.parse(safeB64Decode(decodeURIComponent(params.get('data'))));
+    } catch(e) { showToast('Erro ao carregar dados do link.'); }
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+    document.getElementById('view-badge').style.display = 'flex';
+  } else {
+    loadFromStorage();
+  }
+  render();
+}
+
+// ===== STORAGE =====
+function loadFromStorage() {
+  const raw = localStorage.getItem('golive_state');
+  const ver = localStorage.getItem('golive_version');
+  if (raw && ver === '2') {
+    try { state = JSON.parse(raw); return; } catch(e) {}
+  }
+  // Clear old data and reseed
+  localStorage.removeItem('golive_state');
+  localStorage.setItem('golive_version', '2');
+  // Seed demo data on first load
+  const g1 = uid(), g2 = uid(), g3 = uid();
+  state.groups = [
+    { id: g1, name: 'Longo & Vinhas',   startDate: '', endDate: '' },
+    { id: g2, name: 'Longo & Serviço',  startDate: '', endDate: '' },
+    { id: g3, name: 'Concrelongo',      startDate: '', endDate: '' },
+  ];
+  state.centrals = [
+    // Longo & Vinhas (6)
+    { id: uid(), name: 'Campo Belo',                   goLiveDate: '', groupId: g1 },
+    { id: uid(), name: 'Canteiro - Santana da Vargem', goLiveDate: '', groupId: g1 },
+    { id: uid(), name: 'Varginha',                     goLiveDate: '', groupId: g1 },
+    { id: uid(), name: 'Poços de Caldas',              goLiveDate: '', groupId: g1 },
+    { id: uid(), name: 'Lavras',                       goLiveDate: '', groupId: g1 },
+    { id: uid(), name: 'Ilicínea',                     goLiveDate: '', groupId: g1 },
+    // Longo & Serviço (1) + Concremax (1) — mesmo ambiente Concrelongo
+    { id: uid(), name: 'Três Lagoas',                  goLiveDate: '', groupId: g2 },
+    { id: uid(), name: 'Concremax',                    goLiveDate: '', groupId: g2 },
+    // Concrelongo (21)
+    { id: uid(), name: 'Alfenas',                      goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Americana',                    goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Amparo',                       goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Arthur Nogueira',              goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Barueri',                      goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Cajamar',                      goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Embu das Artes',               goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Espírito Santo de Pinhal',     goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Extrema',                      goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Hortolândia',                  goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Itupeva',                      goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Jacutinga',                    goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Mogi Mirim',                   goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Paulínia',                     goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Poços de Caldas',              goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Socorro',                      goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Valinhos',                     goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Inocência',                    goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Canteiro Raposo',              goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Canteiro Prologis - Cotia',    goLiveDate: '', groupId: g3 },
+    { id: uid(), name: 'Canteiro Guarulhos/Reimix',    goLiveDate: '', groupId: g3 },
+  ];
+  state.completed = [];
+  save();
+  localStorage.setItem('golive_version', '2');
+}
+
+function save() {
+  if (!isViewMode) localStorage.setItem('golive_state', JSON.stringify(state));
+}
+
+// ===== HELPERS =====
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+function formatDate(str) {
+  if (!str) return '—';
+  const [y,m,d] = str.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function showToast(msg, duration=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => t.style.display='none', duration);
+}
+
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+function escHtml(str) {
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Badge colors — Topcon-palette
+const badgeColors = [
+  { bg:'#dbeafe', text:'#1e40af', border:'#93c5fd' },
+  { bg:'#fef3c7', text:'#92400e', border:'#fcd34d' },
+  { bg:'#dcfce7', text:'#166534', border:'#86efac' },
+  { bg:'#fce7f3', text:'#9d174d', border:'#f9a8d4' },
+  { bg:'#e0f2fe', text:'#075985', border:'#7dd3fc' },
+  { bg:'#ede9fe', text:'#5b21b6', border:'#c4b5fd' },
+  { bg:'#ffedd5', text:'#9a3412', border:'#fdba74' },
+  { bg:'#f1f5f9', text:'#334155', border:'#94a3b8' },
+];
+const colorMap = {};
+let colorIdx = 0;
+function getBadgeStyle(groupId) {
+  if (!colorMap[groupId]) {
+    colorMap[groupId] = badgeColors[colorIdx % badgeColors.length];
+    colorIdx++;
+  }
+  return colorMap[groupId];
+}
+
+// Stripe colors for column headers
+const stripeColors = ['#cc1f1f','#f5a623','#1a2a5e','#16a34a','#2e45a0','#d97706','#7c3aed','#0891b2'];
+const stripeMap = {};
+let stripeIdx = 0;
+function getStripeColor(groupId) {
+  if (!stripeMap[groupId]) {
+    stripeMap[groupId] = stripeColors[stripeIdx % stripeColors.length];
+    stripeIdx++;
+  }
+  return stripeMap[groupId];
+}
+
+// ===== RENDER =====
+function render() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  if (state.groups.length === 0 && !isViewMode) {
+    const empty = document.createElement('div');
+    empty.className = 'empty-board';
+    empty.innerHTML = `
+      <div class="empty-icon">◱</div>
+      <h3>Painel em branco</h3>
+      <p>Crie um grupo para começar a organizar a migração das centrais para o Go Live.</p>
+    `;
+    board.appendChild(empty);
+  }
+
+  state.groups.forEach(g => {
+    const cards = state.centrals.filter(c => c.groupId === g.id);
+    board.appendChild(renderColumn(g, cards));
+  });
+
+  board.appendChild(renderCompletedColumn());
+}
+
+function renderColumn(group, cards) {
+  const col = document.createElement('div');
+  col.className = 'column';
+  col.dataset.groupId = group.id;
+
+  const stripe = getStripeColor(group.id);
+
+  const actionsHtml = isViewMode ? '' : `
+    <div class="column-actions">
+      <button class="btn btn-ghost btn-sm" onclick="openEditGroup('${group.id}')">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Editar
+      </button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="askDelete('group','${group.id}')">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+        Excluir
+      </button>
+    </div>`;
+
+  const addHtml = isViewMode ? '' : `
+    <div class="column-add">
+      <button class="btn btn-ghost" style="font-size:12px;width:100%;justify-content:center;color:var(--text3);" onclick="openCentralModal('${group.id}')">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Adicionar Central
+      </button>
+    </div>`;
+
+  col.innerHTML = `
+    <div class="column-header">
+      <div class="column-stripe" style="background:${stripe}"></div>
+      <div class="column-title">
+        ${escHtml(group.name)}
+        <span class="column-count">${cards.length}</span>
+      </div>
+      <div class="column-dates">
+        <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        ${group.startDate ? formatDate(group.startDate) : '—'}
+        &nbsp;→&nbsp;
+        ${group.endDate ? formatDate(group.endDate) : '—'}
+      </div>
+      ${actionsHtml}
+    </div>
+    <div class="column-cards" id="cards-${group.id}"
+      ondragover="onDragOver(event,'${group.id}')"
+      ondragleave="onDragLeave(event)"
+      ondrop="onDrop(event,'${group.id}')">
+      ${cards.map(c => renderCard(c, group)).join('')}
+    </div>
+    ${addHtml}`;
+
+  return col;
+}
+
+function renderCard(central, group) {
+  const actionsHtml = isViewMode ? '' : `
+    <div class="card-actions">
+      <button class="btn btn-ghost btn-sm" onclick="openEditCentral('${central.id}')">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        Editar
+      </button>
+      <button class="btn btn-ghost btn-sm" style="color:var(--red)" onclick="askDelete('central','${central.id}')">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Excluir
+      </button>
+      <button class="btn btn-green btn-sm" onclick="completeCentral('${central.id}')" style="margin-left:auto;">
+        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Concluir
+      </button>
+    </div>`;
+
+  const draggableAttr = isViewMode ? '' : `draggable="true" ondragstart="onDragStart(event,'${central.id}')" ondragend="onDragEnd(event)"`;
+  const stripe = getStripeColor(central.groupId);
+
+  return `
+    <div class="card" id="card-${central.id}" ${draggableAttr} style="border-left-color:${stripe}">
+      <div class="card-name">${escHtml(central.name)}</div>
+      <div class="card-date">
+        <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Go Live: ${formatDate(central.goLiveDate)}
+      </div>
+      ${actionsHtml}
+    </div>`;
+}
+
+function renderCompletedColumn() {
+  const col = document.createElement('div');
+  col.className = 'column column-completed';
+  col.dataset.groupId = '__completed__';
+
+  col.innerHTML = `
+    <div class="column-header">
+      <div class="column-stripe" style="background:var(--green)"></div>
+      <div class="column-title">
+        <svg width="14" height="14" fill="none" stroke="var(--green)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Centrais Concluídas
+        <span class="column-count">${state.completed.length}</span>
+      </div>
+      <div class="column-dates" style="color:var(--green);opacity:0.7;">
+        Migração finalizada
+      </div>
+    </div>
+    <div class="column-cards" id="cards-__completed__">
+      ${state.completed.map(c => renderCompletedCard(c)).join('')}
+    </div>`;
+
+  return col;
+}
+
+function renderCompletedCard(central) {
+  const group = state.groups.find(g => g.id === central.originalGroupId);
+  const groupName = group ? group.name : (central.originalGroupName || 'Grupo removido');
+  const bs = getBadgeStyle(central.originalGroupId);
+
+  return `
+    <div class="card" style="cursor:default;border-left-color:var(--green);border-color:#bbf7d0;">
+      <div class="card-badge" style="background:${bs.bg};color:${bs.text};border:1px solid ${bs.border};">
+        ▣ ${escHtml(groupName)}
+      </div>
+      <div class="card-name">${escHtml(central.name)}</div>
+      <div class="card-date">
+        <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Go Live: ${formatDate(central.goLiveDate)}
+      </div>
+      <div class="card-date" style="margin-top:4px;color:var(--green);">
+        <svg width="10" height="10" fill="none" stroke="var(--green)" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+        Concluído em ${formatDate(central.completedAt)}
+      </div>
+      ${!isViewMode ? `
+      <div class="card-actions">
+        <button class="btn btn-ghost btn-sm" style="color:var(--text3)" onclick="askDelete('completed','${central.id}')">
+          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/></svg>
+          Remover
+        </button>
+      </div>` : ''}
+    </div>`;
+}
+
+// ===== DRAG AND DROP =====
+function onDragStart(e, centralId) {
+  draggedCard = centralId;
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => {
+    const el = document.getElementById('card-' + centralId);
+    if (el) el.classList.add('dragging');
+  }, 0);
+}
+function onDragEnd(e) {
+  document.querySelectorAll('.card').forEach(c => c.classList.remove('dragging'));
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  draggedCard = null;
+}
+function onDragOver(e, groupId) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  const col = document.querySelector(`[data-group-id="${groupId}"]`);
+  if (col) col.classList.add('drag-over');
+}
+function onDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    const col = e.currentTarget.closest('.column');
+    if (col) col.classList.remove('drag-over');
+  }
+}
+function onDrop(e, groupId) {
+  e.preventDefault();
+  document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
+  if (!draggedCard || groupId === '__completed__') return;
+  const central = state.centrals.find(c => c.id === draggedCard);
+  if (central) {
+    central.groupId = groupId;
+    save(); render();
+    showToast('Central movida ✓');
+  }
+}
+
+// ===== GROUP CRUD =====
+function openGroupModal() {
+  editingGroupId = null;
+  document.getElementById('group-modal-title').textContent = 'Novo Grupo';
+  document.getElementById('gm-name').value = '';
+  document.getElementById('gm-start').value = '';
+  document.getElementById('gm-end').value = '';
+  document.getElementById('group-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('gm-name').focus(), 50);
+}
+function openEditGroup(id) {
+  const g = state.groups.find(x => x.id === id);
+  if (!g) return;
+  editingGroupId = id;
+  document.getElementById('group-modal-title').textContent = 'Editar Grupo';
+  document.getElementById('gm-name').value = g.name;
+  document.getElementById('gm-start').value = g.startDate || '';
+  document.getElementById('gm-end').value = g.endDate || '';
+  document.getElementById('group-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('gm-name').focus(), 50);
+}
+function saveGroup() {
+  const name = document.getElementById('gm-name').value.trim();
+  if (!name) { showToast('⚠ Informe o nome do grupo'); return; }
+  if (editingGroupId) {
+    const g = state.groups.find(x => x.id === editingGroupId);
+    g.name = name;
+    g.startDate = document.getElementById('gm-start').value;
+    g.endDate = document.getElementById('gm-end').value;
+    showToast('Grupo atualizado ✓');
+  } else {
+    state.groups.push({ id: uid(), name, startDate: document.getElementById('gm-start').value, endDate: document.getElementById('gm-end').value });
+    showToast('Grupo criado ✓');
+  }
+  save(); closeModal('group-modal'); render();
+}
+
+// ===== CENTRAL CRUD =====
+function openCentralModal(preGroupId) {
+  editingCentralId = null;
+  document.getElementById('central-modal-title').textContent = 'Nova Central';
+  document.getElementById('cm-name').value = '';
+  document.getElementById('cm-date').value = '';
+  populateGroupSelect(preGroupId || (state.groups[0] && state.groups[0].id));
+  document.getElementById('central-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('cm-name').focus(), 50);
+}
+function openEditCentral(id) {
+  const c = state.centrals.find(x => x.id === id);
+  if (!c) return;
+  editingCentralId = id;
+  document.getElementById('central-modal-title').textContent = 'Editar Central';
+  document.getElementById('cm-name').value = c.name;
+  document.getElementById('cm-date').value = c.goLiveDate || '';
+  populateGroupSelect(c.groupId);
+  document.getElementById('central-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('cm-name').focus(), 50);
+}
+function populateGroupSelect(selectedId) {
+  const sel = document.getElementById('cm-group');
+  sel.innerHTML = '';
+  if (state.groups.length === 0) {
+    sel.innerHTML = '<option value="">Nenhum grupo criado</option>';
+    return;
+  }
+  state.groups.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id; opt.textContent = g.name;
+    if (g.id === selectedId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+function saveCentral() {
+  const name = document.getElementById('cm-name').value.trim();
+  const date = document.getElementById('cm-date').value;
+  const groupId = document.getElementById('cm-group').value;
+  if (!name) { showToast('⚠ Informe o nome da central'); return; }
+  if (!groupId) { showToast('⚠ Crie um grupo primeiro'); return; }
+  if (editingCentralId) {
+    const c = state.centrals.find(x => x.id === editingCentralId);
+    c.name = name; c.goLiveDate = date; c.groupId = groupId;
+    showToast('Central atualizada ✓');
+  } else {
+    state.centrals.push({ id: uid(), name, goLiveDate: date, groupId });
+    showToast('Central criada ✓');
+  }
+  save(); closeModal('central-modal'); render();
+}
+
+// ===== COMPLETE =====
+function completeCentral(id) {
+  const idx = state.centrals.findIndex(c => c.id === id);
+  if (idx === -1) return;
+  const c = state.centrals[idx];
+  const group = state.groups.find(g => g.id === c.groupId);
+  state.completed.unshift({
+    ...c,
+    originalGroupId: c.groupId,
+    originalGroupName: group ? group.name : 'Grupo removido',
+    completedAt: new Date().toISOString().split('T')[0]
+  });
+  state.centrals.splice(idx, 1);
+  save(); render();
+  showToast('Central concluída ✓');
+}
+
+// ===== DELETE =====
+function askDelete(type, id) {
+  pendingDeleteType = type; pendingDeleteId = id;
+  let msg = '';
+  if (type === 'group') {
+    const g = state.groups.find(x => x.id === id);
+    const count = state.centrals.filter(c => c.groupId === id).length;
+    msg = `Deseja excluir o grupo <strong style="color:var(--navy)">"${escHtml(g?.name)}"</strong>?${count > 0 ? `<br><br><span style="color:var(--red)">⚠ ${count} central(ais) neste grupo também serão excluídas.</span>` : ''}`;
+  } else if (type === 'central') {
+    const c = state.centrals.find(x => x.id === id);
+    msg = `Deseja excluir a central <strong style="color:var(--navy)">"${escHtml(c?.name)}"</strong>? Esta ação não pode ser desfeita.`;
+  } else if (type === 'completed') {
+    const c = state.completed.find(x => x.id === id);
+    msg = `Deseja <strong>restaurar</strong> a central <strong style="color:var(--navy)">"${escHtml(c?.name)}"</strong> de volta ao seu grupo original?`;
+  }
+  document.getElementById('confirm-text').innerHTML = msg;
+  const btn = document.getElementById('confirm-btn');
+  if (type === 'completed') {
+    btn.textContent = 'Restaurar ao Grupo';
+    btn.className = 'btn btn-green';
+  } else {
+    btn.textContent = 'Confirmar Exclusão';
+    btn.className = 'btn btn-danger';
+  }
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+function confirmDeleteAction() {
+  if (pendingDeleteType === 'group') {
+    state.groups = state.groups.filter(g => g.id !== pendingDeleteId);
+    state.centrals = state.centrals.filter(c => c.groupId !== pendingDeleteId);
+    showToast('Grupo excluído');
+  } else if (pendingDeleteType === 'central') {
+    state.centrals = state.centrals.filter(c => c.id !== pendingDeleteId);
+    showToast('Central excluída');
+  } else if (pendingDeleteType === 'completed') {
+    const c = state.completed.find(x => x.id === pendingDeleteId);
+    if (c) {
+      const targetGroupId = state.groups.find(g => g.id === c.originalGroupId)
+        ? c.originalGroupId
+        : (state.groups[0] ? state.groups[0].id : null);
+      if (targetGroupId) {
+        state.centrals.push({ id: c.id, name: c.name, goLiveDate: c.goLiveDate, groupId: targetGroupId });
+      }
+      state.completed = state.completed.filter(x => x.id !== pendingDeleteId);
+    }
+    showToast('Central restaurada ao grupo ✓');
+  }
+  save(); closeModal('confirm-modal'); render();
+}
+
+// ===== SHARE LINK =====
+function safeB64Encode(str) {
+  // Handles full UTF-8 (accented chars, etc.)
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (_, p1) => String.fromCharCode('0x' + p1)));
+}
+function safeB64Decode(str) {
+  return decodeURIComponent(Array.from(atob(str), c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join(''));
+}
+function generateShareLink() {
+  const encoded = encodeURIComponent(safeB64Encode(JSON.stringify(state)));
+  const url = `${location.origin}${location.pathname}?mode=view&data=${encoded}`;
+  document.getElementById('share-url').textContent = url;
+  document.getElementById('share-modal').style.display = 'flex';
+}
+function copyShareLink() {
+  const url = document.getElementById('share-url').textContent;
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('Link copiado ✓');
+    closeModal('share-modal');
+  }).catch(() => {
+    const el = document.getElementById('share-url');
+    const range = document.createRange();
+    range.selectNode(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    showToast('Selecione e copie o link manualmente');
+  });
+}
+
+// ===== KEYBOARD =====
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') ['group-modal','central-modal','share-modal','confirm-modal'].forEach(id => closeModal(id));
+  if (e.key === 'Enter') {
+    if (document.getElementById('group-modal').style.display !== 'none') saveGroup();
+    else if (document.getElementById('central-modal').style.display !== 'none') saveCentral();
+  }
+});
+document.querySelectorAll('.modal-backdrop').forEach(b => {
+  b.addEventListener('click', e => { if (e.target === b) b.style.display = 'none'; });
+});
+
+init();
+</script>
+
+<!-- GANTT MODAL -->
+<div class="modal-backdrop" id="gantt-modal" style="display:none;align-items:flex-start;padding:20px;">
+  <div class="modal" style="max-width:95vw;width:95vw;margin-top:10px;">
+    <div class="modal-header">
+      <svg width="16" height="16" fill="none" stroke="var(--sky)" stroke-width="2.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="8" y1="4" x2="8" y2="20"/></svg>
+      <div class="modal-title">Gráfico de Gantt — Go Live</div>
+    </div>
+    <div class="modal-body" style="padding:20px;overflow-x:auto;max-height:75vh;overflow-y:auto;">
+      <div id="gantt-container"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('gantt-modal')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* ── GANTT ── */
+  .gantt-wrap { font-family: 'Barlow', sans-serif; min-width: 900px; }
+  .gantt-header-row { display: flex; border-bottom: 2px solid var(--border2); margin-bottom: 2px; }
+  .gantt-label-col { width: 220px; min-width: 220px; font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; padding: 6px 10px 6px 0; }
+  .gantt-timeline-col { flex: 1; display: flex; }
+  .gantt-month { flex: 1; text-align: center; font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; padding: 6px 2px; border-left: 1px solid var(--border); }
+  .gantt-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); min-height: 34px; }
+  .gantt-row:hover { background: var(--surface2); }
+  .gantt-row-group { background: #edf0f9; border-bottom: 2px solid var(--border2); min-height: 30px; }
+  .gantt-name { width: 220px; min-width: 220px; font-size: 12px; font-weight: 600; color: var(--navy); padding: 4px 10px 4px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gantt-name-group { font-weight: 700; color: var(--navy); font-size: 12px; }
+  .gantt-bar-track { flex: 1; position: relative; height: 34px; display: flex; align-items: center; }
+  .gantt-bar { position: absolute; height: 18px; border-radius: 4px; display: flex; align-items: center; padding: 0 6px; font-size: 10px; font-weight: 700; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: default; transition: opacity 0.15s; }
+  .gantt-bar:hover { opacity: 0.85; }
+  .gantt-bar-group { height: 10px; border-radius: 3px; opacity: 0.35; }
+  .gantt-today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); z-index: 10; }
+  .gantt-today::before { content: 'hoje'; position: absolute; top: -18px; left: -14px; font-size: 9px; font-weight: 700; color: var(--red); background: #fff; padding: 1px 3px; border-radius: 3px; border: 1px solid var(--red); }
+  .gantt-dot { width: 10px; height: 10px; border-radius: 50%; position: absolute; border: 2px solid #fff; }
+  .gantt-empty { padding: 40px; text-align: center; color: var(--text3); font-size: 13px; }
+  .gantt-legend { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 0 4px; }
+  .gantt-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); font-weight: 500; }
+  .gantt-legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+</style>
+</body>
+</html>
