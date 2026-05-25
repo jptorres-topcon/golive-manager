@@ -1115,6 +1115,133 @@ document.querySelectorAll('.modal-backdrop').forEach(b => {
   b.addEventListener('click', e => { if (e.target === b) b.style.display = 'none'; });
 });
 
+
+// ===== GANTT =====
+const GANTT_COLORS = ['#1a2a5e','#cc1f1f','#f5a623','#16a34a','#7c3aed','#0891b2','#d97706','#b45309'];
+
+function openGantt() {
+  renderGantt();
+  document.getElementById('gantt-modal').style.display = 'flex';
+}
+
+function renderGantt() {
+  const container = document.getElementById('gantt-container');
+
+  const allItems = [
+    ...state.centrals.filter(c => c.goLiveDate),
+    ...state.completed.filter(c => c.goLiveDate)
+  ];
+
+  if (allItems.length === 0 && state.groups.every(g => !g.startDate && !g.endDate)) {
+    container.innerHTML = '<div class="gantt-empty">Nenhuma data definida ainda.<br>Edite os grupos e centrais para adicionar datas de Go Live.</div>';
+    return;
+  }
+
+  // Collect all dates to determine range
+  const allDates = [];
+  state.groups.forEach(g => {
+    if (g.startDate) allDates.push(new Date(g.startDate));
+    if (g.endDate)   allDates.push(new Date(g.endDate));
+  });
+  allItems.forEach(c => allDates.push(new Date(c.goLiveDate)));
+
+  if (allDates.length === 0) {
+    container.innerHTML = '<div class="gantt-empty">Nenhuma data definida ainda.</div>';
+    return;
+  }
+
+  let minDate = new Date(Math.min(...allDates));
+  let maxDate = new Date(Math.max(...allDates));
+  // snap to month boundaries + 1 month padding each side
+  minDate = new Date(minDate.getFullYear(), minDate.getMonth() - 1, 1);
+  maxDate = new Date(maxDate.getFullYear(), maxDate.getMonth() + 2, 0);
+  const totalMs = maxDate - minDate;
+
+  function pct(dateStr) {
+    const d = new Date(dateStr);
+    return Math.max(0, Math.min(100, ((d - minDate) / totalMs) * 100));
+  }
+
+  // Build month labels
+  const months = [];
+  let cur = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+  while (cur <= maxDate) {
+    months.push(new Date(cur));
+    cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+  }
+  const monthNames = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+  const today = new Date();
+  const showToday = today >= minDate && today <= maxDate;
+  const todayPct = ((today - minDate) / totalMs) * 100;
+
+  let html = '<div class="gantt-wrap">';
+
+  // Legend
+  html += '<div class="gantt-legend">';
+  state.groups.forEach((g, i) => {
+    const color = GANTT_COLORS[i % GANTT_COLORS.length];
+    html += `<div class="gantt-legend-item"><div class="gantt-legend-dot" style="background:${color}"></div>${escHtml(g.name)}</div>`;
+  });
+  html += '</div>';
+
+  // Month header
+  html += '<div class="gantt-header-row"><div class="gantt-label-col">Central / Grupo</div><div class="gantt-timeline-col">';
+  months.forEach(m => {
+    html += `<div class="gantt-month">${monthNames[m.getMonth()]} ${m.getFullYear()}</div>`;
+  });
+  html += '</div></div>';
+
+  // Rows per group
+  state.groups.forEach((g, gi) => {
+    const color = GANTT_COLORS[gi % GANTT_COLORS.length];
+    const centralsInGroup = [
+      ...state.centrals.filter(c => c.groupId === g.id && c.goLiveDate),
+      ...state.completed.filter(c => c.originalGroupId === g.id && c.goLiveDate)
+    ];
+
+    // Group header row
+    const groupStart = g.startDate || (centralsInGroup.length ? centralsInGroup.reduce((a,b) => a.goLiveDate < b.goLiveDate ? a : b).goLiveDate : null);
+    const groupEnd   = g.endDate   || (centralsInGroup.length ? centralsInGroup.reduce((a,b) => a.goLiveDate > b.goLiveDate ? a : b).goLiveDate : null);
+    const spanWidth  = groupStart && groupEnd ? Math.max(0.5, pct(groupEnd) - pct(groupStart)) : 0;
+
+    html += `<div class="gantt-row gantt-row-group">
+      <div class="gantt-name gantt-name-group" title="${escHtml(g.name)}">${escHtml(g.name)}</div>
+      <div class="gantt-bar-track">
+        ${showToday ? `<div class="gantt-today" style="left:${todayPct}%"><span>hoje</span></div>` : ''}
+        ${groupStart ? `<div class="gantt-bar gantt-bar-group" style="left:${pct(groupStart)}%;width:${spanWidth}%;background:${color};"></div>` : ''}
+      </div>
+    </div>`;
+
+    // Central rows
+    centralsInGroup.forEach(c => {
+      const isCompleted = !!state.completed.find(x => x.id === c.id);
+      const p = pct(c.goLiveDate);
+      html += `<div class="gantt-row">
+        <div class="gantt-name" style="padding-left:18px;color:${isCompleted ? 'var(--green)' : 'var(--navy)'};" title="${escHtml(c.name)}">
+          ${isCompleted ? '✓ ' : '· '}${escHtml(c.name)}
+        </div>
+        <div class="gantt-bar-track">
+          ${showToday ? `<div class="gantt-today" style="left:${todayPct}%"></div>` : ''}
+          <div class="gantt-bar" style="left:${p}%;background:${isCompleted ? 'var(--green)' : color};" title="${escHtml(c.name)} — ${formatDate(c.goLiveDate)}">
+            ${escHtml(c.name)} <span style="opacity:0.75;font-weight:400;margin-left:4px;">${formatDate(c.goLiveDate)}</span>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    if (centralsInGroup.length === 0) {
+      html += `<div class="gantt-row">
+        <div class="gantt-name" style="padding-left:18px;font-style:italic;color:var(--text3);font-size:11px;">Sem datas definidas</div>
+        <div class="gantt-bar-track"></div>
+      </div>`;
+    }
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
 init();
 </script>
 
