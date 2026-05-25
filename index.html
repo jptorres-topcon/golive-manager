@@ -492,6 +492,72 @@
   .empty-board h3 { font-size: 18px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
   .empty-board p { font-size: 13px; color: var(--text2); line-height: 1.7; max-width: 320px; }
 
+  /* ── STATUS BADGES ── */
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    border: 1px solid transparent;
+  }
+  .status-planejado  { background:#dbeafe; color:#1e40af; border-color:#93c5fd; }
+  .status-andamento  { background:#fef3c7; color:#92400e; border-color:#fcd34d; }
+  .status-concluido  { background:#dcfce7; color:#166534; border-color:#86efac; }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .status-planejado  .status-dot { background:#3b82f6; }
+  .status-andamento  .status-dot { background:#f59e0b; }
+  .status-concluido  .status-dot { background:#16a34a; }
+
+  /* Status selector on card (view mode: static; admin: clickable) */
+  .status-select {
+    appearance: none;
+    border: none;
+    background: transparent;
+    font-family: 'Barlow', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+    color: inherit;
+  }
+
+  /* Progress bar status indicators */
+  .prog-status-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .prog-status-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #ffffffaa;
+    white-space: nowrap;
+  }
+  .prog-status-item strong {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    margin-right: 2px;
+  }
+  .prog-status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+
   /* Toast */
   #toast {
     position: fixed;
@@ -565,6 +631,21 @@
     <div class="progress-stat-value" style="color:#f5a623" id="prog-pending">0</div>
   </div>
   <div class="progress-divider"></div>
+  <div class="prog-status-group" id="prog-status-group">
+    <div class="prog-status-item">
+      <div class="prog-status-dot" style="background:#3b82f6"></div>
+      <strong id="prog-s-plan">0</strong> Planejado
+    </div>
+    <div class="prog-status-item">
+      <div class="prog-status-dot" style="background:#f59e0b"></div>
+      <strong id="prog-s-and">0</strong> Em andamento
+    </div>
+    <div class="prog-status-item">
+      <div class="prog-status-dot" style="background:#16a34a"></div>
+      <strong id="prog-s-conc">0</strong> Concluído
+    </div>
+  </div>
+  <div class="progress-divider"></div>
   <div class="progress-track">
     <div class="progress-fill" id="prog-fill" style="width:0%"></div>
   </div>
@@ -618,9 +699,16 @@
         <label>Previsão de Go Live</label>
         <input type="date" id="cm-date">
       </div>
-      <div class="field" style="margin-bottom:0">
+      <div class="field">
         <label>Grupo</label>
         <select id="cm-group"></select>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Status</label>
+        <select id="cm-status">
+          <option value="planejado">⬤ Planejado</option>
+          <option value="andamento">⬤ Em andamento</option>
+        </select>
       </div>
     </div>
     <div class="modal-footer">
@@ -836,11 +924,18 @@ function updateProgress() {
   const pending = state.centrals.length;
   const pct     = total > 0 ? Math.round((done / total) * 100) : 0;
 
+  const sPlan = state.centrals.filter(c => (c.status || 'planejado') === 'planejado').length;
+  const sAnd  = state.centrals.filter(c => c.status === 'andamento').length;
+  const sConc = state.completed.length;
+
   document.getElementById('prog-total').innerHTML   = `${total}`;
   document.getElementById('prog-done').innerHTML    = `${done}`;
   document.getElementById('prog-pending').innerHTML = `${pending}`;
   document.getElementById('prog-fill').style.width  = `${pct}%`;
   document.getElementById('prog-pct').textContent   = `${pct}%`;
+  document.getElementById('prog-s-plan').textContent = sPlan;
+  document.getElementById('prog-s-and').textContent  = sAnd;
+  document.getElementById('prog-s-conc').textContent = sConc;
 }
 
 function render() {
@@ -1090,6 +1185,7 @@ function openCentralModal(preGroupId) {
   document.getElementById('central-modal-title').textContent = 'Nova Central';
   document.getElementById('cm-name').value = '';
   document.getElementById('cm-date').value = '';
+  document.getElementById('cm-status').value = 'planejado';
   populateGroupSelect(preGroupId || (state.groups[0] && state.groups[0].id));
   document.getElementById('central-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('cm-name').focus(), 50);
@@ -1101,6 +1197,7 @@ function openEditCentral(id) {
   document.getElementById('central-modal-title').textContent = 'Editar Central';
   document.getElementById('cm-name').value = c.name;
   document.getElementById('cm-date').value = c.goLiveDate || '';
+  document.getElementById('cm-status').value = c.status || 'planejado';
   populateGroupSelect(c.groupId);
   document.getElementById('central-modal').style.display = 'flex';
   setTimeout(() => document.getElementById('cm-name').focus(), 50);
@@ -1123,21 +1220,32 @@ function saveCentral() {
   const name = document.getElementById('cm-name').value.trim();
   const date = document.getElementById('cm-date').value;
   const groupId = document.getElementById('cm-group').value;
+  const status = document.getElementById('cm-status').value;
   if (!name) { showToast('⚠ Informe o nome da central'); return; }
   if (!groupId) { showToast('⚠ Crie um grupo primeiro'); return; }
   if (editingCentralId) {
     const c = state.centrals.find(x => x.id === editingCentralId);
     const oldGroupId = c.groupId;
-    c.name = name; c.goLiveDate = date; c.groupId = groupId;
+    c.name = name; c.goLiveDate = date; c.groupId = groupId; c.status = status;
     recalcGroupDates(oldGroupId);
     if (oldGroupId !== groupId) recalcGroupDates(groupId);
     showToast('Central atualizada ✓');
   } else {
-    state.centrals.push({ id: uid(), name, goLiveDate: date, groupId });
+    state.centrals.push({ id: uid(), name, goLiveDate: date, groupId, status });
     recalcGroupDates(groupId);
     showToast('Central criada ✓');
   }
   save(); closeModal('central-modal'); render();
+}
+
+function cycleStatus(id) {
+  const c = state.centrals.find(x => x.id === id);
+  if (!c) return;
+  const cycle = ['planejado','andamento'];
+  const idx = cycle.indexOf(c.status || 'planejado');
+  c.status = cycle[(idx + 1) % cycle.length];
+  save(); render();
+  showToast(`Status: ${({planejado:'Planejado',andamento:'Em andamento'})[c.status]} ✓`);
 }
 
 // ===== COMPLETE =====
@@ -1149,6 +1257,7 @@ function completeCentral(id) {
   const completedGroupId = c.groupId;
   state.completed.unshift({
     ...c,
+    status: 'concluido',
     originalGroupId: c.groupId,
     originalGroupName: group ? group.name : 'Grupo removido',
     completedAt: new Date().toISOString().split('T')[0]
@@ -1204,7 +1313,7 @@ function confirmDeleteAction() {
         ? c.originalGroupId
         : (state.groups[0] ? state.groups[0].id : null);
       if (targetGroupId) {
-        state.centrals.push({ id: c.id, name: c.name, goLiveDate: c.goLiveDate, groupId: targetGroupId });
+        state.centrals.push({ id: c.id, name: c.name, goLiveDate: c.goLiveDate, groupId: targetGroupId, status: 'planejado' });
       }
       state.completed = state.completed.filter(x => x.id !== pendingDeleteId);
       if (targetGroupId) recalcGroupDates(targetGroupId);
