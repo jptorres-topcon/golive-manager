@@ -598,6 +598,8 @@ function init() {
     document.getElementById('view-badge').style.display = 'flex';
   } else {
     loadFromStorage();
+    recalcAllGroupDates();
+    save();
   }
   render();
 }
@@ -781,6 +783,7 @@ function renderColumn(group, cards) {
         ${group.startDate ? formatDate(group.startDate) : '—'}
         &nbsp;→&nbsp;
         ${group.endDate ? formatDate(group.endDate) : '—'}
+        ${group.startDate ? '' : '<span style="font-size:9px;opacity:0.5;margin-left:4px;">(sem datas)</span>'}
       </div>
       ${actionsHtml}
     </div>
@@ -912,7 +915,10 @@ function onDrop(e, groupId) {
   if (!draggedCard || groupId === '__completed__') return;
   const central = state.centrals.find(c => c.id === draggedCard);
   if (central) {
+    const oldGroupId = central.groupId;
     central.groupId = groupId;
+    recalcGroupDates(oldGroupId);
+    recalcGroupDates(groupId);
     save(); render();
     showToast('Central movida ✓');
   }
@@ -998,10 +1004,14 @@ function saveCentral() {
   if (!groupId) { showToast('⚠ Crie um grupo primeiro'); return; }
   if (editingCentralId) {
     const c = state.centrals.find(x => x.id === editingCentralId);
+    const oldGroupId = c.groupId;
     c.name = name; c.goLiveDate = date; c.groupId = groupId;
+    recalcGroupDates(oldGroupId);
+    if (oldGroupId !== groupId) recalcGroupDates(groupId);
     showToast('Central atualizada ✓');
   } else {
     state.centrals.push({ id: uid(), name, goLiveDate: date, groupId });
+    recalcGroupDates(groupId);
     showToast('Central criada ✓');
   }
   save(); closeModal('central-modal'); render();
@@ -1013,6 +1023,7 @@ function completeCentral(id) {
   if (idx === -1) return;
   const c = state.centrals[idx];
   const group = state.groups.find(g => g.id === c.groupId);
+  const completedGroupId = c.groupId;
   state.completed.unshift({
     ...c,
     originalGroupId: c.groupId,
@@ -1020,6 +1031,7 @@ function completeCentral(id) {
     completedAt: new Date().toISOString().split('T')[0]
   });
   state.centrals.splice(idx, 1);
+  recalcGroupDates(completedGroupId);
   save(); render();
   showToast('Central concluída ✓');
 }
@@ -1054,9 +1066,13 @@ function confirmDeleteAction() {
   if (pendingDeleteType === 'group') {
     state.groups = state.groups.filter(g => g.id !== pendingDeleteId);
     state.centrals = state.centrals.filter(c => c.groupId !== pendingDeleteId);
+    recalcAllGroupDates();
     showToast('Grupo excluído');
   } else if (pendingDeleteType === 'central') {
+    const dc = state.centrals.find(c => c.id === pendingDeleteId);
+    const dcGroupId = dc ? dc.groupId : null;
     state.centrals = state.centrals.filter(c => c.id !== pendingDeleteId);
+    if (dcGroupId) recalcGroupDates(dcGroupId);
     showToast('Central excluída');
   } else if (pendingDeleteType === 'completed') {
     const c = state.completed.find(x => x.id === pendingDeleteId);
@@ -1068,6 +1084,7 @@ function confirmDeleteAction() {
         state.centrals.push({ id: c.id, name: c.name, goLiveDate: c.goLiveDate, groupId: targetGroupId });
       }
       state.completed = state.completed.filter(x => x.id !== pendingDeleteId);
+      if (targetGroupId) recalcGroupDates(targetGroupId);
     }
     showToast('Central restaurada ao grupo ✓');
   }
@@ -1115,6 +1132,25 @@ document.querySelectorAll('.modal-backdrop').forEach(b => {
   b.addEventListener('click', e => { if (e.target === b) b.style.display = 'none'; });
 });
 
+
+
+// ===== AUTO GROUP DATES =====
+function recalcGroupDates(groupId) {
+  // Gather all go-live dates for centrals in this group (active + completed)
+  const dates = [
+    ...state.centrals.filter(c => c.groupId === groupId && c.goLiveDate),
+    ...state.completed.filter(c => c.originalGroupId === groupId && c.goLiveDate)
+  ].map(c => c.goLiveDate).sort();
+
+  const g = state.groups.find(x => x.id === groupId);
+  if (!g) return;
+  g.startDate = dates.length ? dates[0]           : '';
+  g.endDate   = dates.length ? dates[dates.length - 1] : '';
+}
+
+function recalcAllGroupDates() {
+  state.groups.forEach(g => recalcGroupDates(g.id));
+}
 
 // ===== GANTT =====
 const GANTT_COLORS = ['#1a2a5e','#cc1f1f','#f5a623','#16a34a','#7c3aed','#0891b2','#d97706','#b45309'];
