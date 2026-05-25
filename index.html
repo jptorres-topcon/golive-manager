@@ -44,21 +44,45 @@
   ::-webkit-scrollbar-track { background: var(--bg); }
   ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
-  /* Scrollbar horizontal do board — maior e mais visível */
-  .board-wrap::-webkit-scrollbar { height: 14px; }
+  /* Scrollbar horizontal do board */
+  .board-wrap::-webkit-scrollbar { height: 20px; }
   .board-wrap::-webkit-scrollbar-track {
     background: #c8d0e0;
-    border-radius: 8px;
-    margin: 0 8px;
+    border-radius: 10px;
+    margin: 0 12px;
   }
   .board-wrap::-webkit-scrollbar-thumb {
     background: #1a2a5e;
-    border-radius: 8px;
-    border: 3px solid #c8d0e0;
+    border-radius: 10px;
+    border: 4px solid #c8d0e0;
   }
   .board-wrap::-webkit-scrollbar-thumb:hover {
-    background: #2e45a0;
+    background: #cc1f1f;
   }
+
+  /* Scroll arrows */
+  .scroll-arrow {
+    position: fixed;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50;
+    width: 40px;
+    height: 72px;
+    background: #1a2a5ecc;
+    border: 1px solid #ffffff22;
+    backdrop-filter: blur(6px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .scroll-arrow:hover { background: #cc1f1fdd; }
+  .scroll-arrow.left  { left: 0;  border-radius: 0 8px 8px 0; }
+  .scroll-arrow.right { right: 0; border-radius: 8px 0 0 8px; }
+  .scroll-arrow svg   { color: #fff; }
+  .scroll-arrow.hidden { opacity: 0; pointer-events: none; }
 
   /* ── HEADER ── */
   .header {
@@ -980,6 +1004,7 @@ function render() {
   });
 
   board.appendChild(renderCompletedColumn());
+  setTimeout(updateScrollArrows, 50);
 }
 
 function renderColumn(group, cards) {
@@ -1560,6 +1585,31 @@ function renderGantt() {
   container.innerHTML = html;
 }
 
+// ===== SCROLL ARROWS =====
+function scrollBoard(dir) {
+  const board = document.getElementById('board');
+  board.scrollBy({ left: dir * 320, behavior: 'smooth' });
+}
+
+function updateScrollArrows() {
+  const board = document.getElementById('board');
+  if (!board) return;
+  const atStart = board.scrollLeft <= 10;
+  const atEnd   = board.scrollLeft >= board.scrollWidth - board.clientWidth - 10;
+  document.getElementById('scroll-left').classList.toggle('hidden', atStart);
+  document.getElementById('scroll-right').classList.toggle('hidden', atEnd);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const board = document.getElementById('board');
+  if (board) {
+    board.addEventListener('scroll', updateScrollArrows);
+    // re-check after render
+    const obs = new MutationObserver(updateScrollArrows);
+    obs.observe(board, { childList: true, subtree: false });
+  }
+});
+
 init();
 </script>
 
@@ -1603,5 +1653,13 @@ init();
   .gantt-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); font-weight: 500; }
   .gantt-legend-dot { width: 12px; height: 12px; border-radius: 3px; }
 </style>
+<!-- SCROLL ARROWS -->
+<div class="scroll-arrow left hidden" id="scroll-left" onclick="scrollBoard(-1)">
+  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+</div>
+<div class="scroll-arrow right" id="scroll-right" onclick="scrollBoard(1)">
+  <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+</div>
+
 </body>
 </html>
