@@ -1123,11 +1123,15 @@ function generateShareLink() {
   document.getElementById('share-url-short').textContent = 'Gerando link curto...';
   document.getElementById('share-modal').style.display = 'flex';
 
-  // Shorten via TinyURL
+  // Shorten via TinyURL — extract code and build clean URL (no preview page)
   fetch(`https://tinyurl.com/api-create.php?url=${encodeURIComponent(longUrl)}`)
     .then(r => r.text())
-    .then(short => {
-      document.getElementById('share-url-short').textContent = short;
+    .then(raw => {
+      // raw may be "https://tinyurl.com/preview/deprecated/CODE" or "https://tinyurl.com/CODE"
+      // Either way, extract the last path segment as the short code
+      const code = raw.trim().split('/').pop();
+      const clean = `https://tinyurl.com/${code}`;
+      document.getElementById('share-url-short').textContent = clean;
     })
     .catch(() => {
       document.getElementById('share-url-short').textContent = '(não foi possível gerar link curto)';
