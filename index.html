@@ -341,20 +341,24 @@
     margin-top: 8px;
     align-items: center;
   }
-  .col-drag-handle {
-    cursor: grab;
+  .col-move-btn {
+    background: transparent;
+    border: 1px solid var(--border2);
     color: var(--text3);
-    padding: 2px 4px;
     border-radius: 4px;
-    display: flex;
+    width: 26px;
+    height: 24px;
+    display: inline-flex;
     align-items: center;
-    margin-right: auto;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.15s;
+    flex-shrink: 0;
   }
-  .col-drag-handle:hover { color: var(--navy); background: var(--surface2); }
-  .col-drag-handle:active { cursor: grabbing; }
-  .column.col-dragging { opacity: 0.4; }
-  .column.col-drag-over-left  { border-left:  3px solid var(--orange); }
-  .column.col-drag-over-right { border-right: 3px solid var(--orange); }
+  .col-move-btn:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
+  .col-move-btn:disabled { opacity: 0.2; cursor: default; }
+  .col-move-btn:disabled:hover { background: transparent; color: var(--text3); border-color: var(--border2); }
   .column-cards {
     flex: 1;
     overflow-y: auto;
@@ -1019,7 +1023,7 @@ function render() {
   });
 
   board.appendChild(renderCompletedColumn());
-  setTimeout(() => { attachColDragEvents(); updateScrollArrows(); }, 50);
+  setTimeout(updateScrollArrows, 50);
 }
 
 function renderColumn(group, cards) {
@@ -1031,13 +1035,8 @@ function renderColumn(group, cards) {
 
   const actionsHtml = isViewMode ? '' : `
     <div class="column-actions">
-      <div class="col-drag-handle" draggable="true"
-        ondragstart="onColDragStart(event,'${group.id}')"
-        ondragend="onColDragEnd(event)"
-        title="Arrastar para reordenar coluna">
-        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-        Mover
-      </div>
+      <button class="col-move-btn" onclick="moveGroup('${group.id}',-1)" title="Mover para esquerda">◀</button>
+      <button class="col-move-btn" onclick="moveGroup('${group.id}',1)"  title="Mover para direita">▶</button>
       <button class="btn btn-ghost btn-sm" onclick="openEditGroup('${group.id}')">
         <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
         Editar
@@ -1217,64 +1216,16 @@ function onDrop(e, groupId) {
   }
 }
 
-// ===== COLUMN DRAG (reorder groups) =====
-let draggedColId = null;
-
-function onColDragStart(e, groupId) {
-  draggedColId = groupId;
-  e.stopPropagation();
-  e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', groupId);
-  setTimeout(() => {
-    const col = document.querySelector(`[data-group-id="${groupId}"]`);
-    if (col) col.classList.add('col-dragging');
-  }, 0);
-}
-
-function onColDragEnd(e) {
-  draggedColId = null;
-  document.querySelectorAll('.column').forEach(c => {
-    c.classList.remove('col-dragging','col-drag-over-left','col-drag-over-right');
-  });
-}
-
-// Attach column-level drag events after render
-function attachColDragEvents() {
-  if (isViewMode) return;
-  document.querySelectorAll('.column:not([data-group-id="__completed__"])').forEach(col => {
-    col.addEventListener('dragover', e => {
-      if (!draggedColId || draggedColId === col.dataset.groupId) return;
-      e.preventDefault();
-      e.stopPropagation();
-      // determine left or right half
-      const rect = col.getBoundingClientRect();
-      const mid = rect.left + rect.width / 2;
-      col.classList.remove('col-drag-over-left','col-drag-over-right');
-      col.classList.add(e.clientX < mid ? 'col-drag-over-left' : 'col-drag-over-right');
-    });
-    col.addEventListener('dragleave', e => {
-      if (!col.contains(e.relatedTarget)) {
-        col.classList.remove('col-drag-over-left','col-drag-over-right');
-      }
-    });
-    col.addEventListener('drop', e => {
-      if (!draggedColId || draggedColId === col.dataset.groupId) return;
-      e.preventDefault();
-      e.stopPropagation();
-      col.classList.remove('col-drag-over-left','col-drag-over-right');
-      const rect = col.getBoundingClientRect();
-      const mid = rect.left + rect.width / 2;
-      const insertBefore = e.clientX < mid;
-      const fromIdx = state.groups.findIndex(g => g.id === draggedColId);
-      const toIdx   = state.groups.findIndex(g => g.id === col.dataset.groupId);
-      if (fromIdx === -1 || toIdx === -1) return;
-      const [moved] = state.groups.splice(fromIdx, 1);
-      const newIdx = state.groups.findIndex(g => g.id === col.dataset.groupId);
-      state.groups.splice(insertBefore ? newIdx : newIdx + 1, 0, moved);
-      save(); render();
-      showToast('Ordem dos grupos atualizada ✓');
-    });
-  });
+// ===== COLUMN REORDER (arrow buttons) =====
+function moveGroup(groupId, dir) {
+  const idx = state.groups.findIndex(g => g.id === groupId);
+  if (idx === -1) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= state.groups.length) return;
+  const [moved] = state.groups.splice(idx, 1);
+  state.groups.splice(newIdx, 0, moved);
+  save(); render();
+  showToast(dir < 0 ? 'Coluna movida para esquerda ✓' : 'Coluna movida para direita ✓');
 }
 
 // ===== GROUP CRUD =====
