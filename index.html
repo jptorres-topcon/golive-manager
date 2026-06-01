@@ -634,9 +634,78 @@
     box-shadow: 0 4px 20px #0f2a4a44;
     border-left: 3px solid var(--red);
   }
+
+  /* ── LOGIN SCREEN ── */
+  #login-screen {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1a2a5e 0%, #243575 60%, #2e45a0 100%);
+    background-image: radial-gradient(#ffffff08 1px, transparent 1px);
+    background-size: 24px 24px;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 40px 36px 32px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 24px 64px #0f2a4a55;
+    animation: modalIn 0.2s ease;
+  }
+  .login-logo-area { text-align: center; margin-bottom: 24px; }
+  .login-brand-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 28px; font-weight: 700;
+    color: var(--navy); letter-spacing: 0.06em; display: block;
+  }
+  .login-brand-sub {
+    font-size: 10px; font-weight: 700; color: var(--orange);
+    letter-spacing: 0.2em; text-transform: uppercase; display: block; margin-top: 2px;
+  }
+  .login-divider { width: 40px; height: 3px; background: var(--red); border-radius: 2px; margin: 14px auto; }
+  .login-title { font-size: 16px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
+  .login-hint { font-size: 12px; color: var(--text3); margin-bottom: 22px; line-height: 1.6; }
+  .login-error {
+    background: #fef2f2; border: 1px solid #fca5a5;
+    border-radius: 6px; padding: 9px 12px;
+    font-size: 12px; color: var(--red); font-weight: 600;
+    margin-top: 12px; display: none;
+  }
+
+  /* Column drag & drop highlight */
+  .column.col-drag-over {
+    border-color: var(--sky);
+    box-shadow: 0 0 0 3px #5b78d430;
+    border-style: dashed;
+  }
+  .column-header[draggable="true"] { cursor: grab; }
+  .column-header[draggable="true"]:active { cursor: grabbing; }
 </style>
 </head>
 <body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo-area">
+      <span class="login-brand-name">CONCRELONGO</span>
+      <span class="login-brand-sub">Go Live Manager · Topcon</span>
+      <div class="login-divider"></div>
+    </div>
+    <div class="login-title">Acesso ao Painel</div>
+    <div class="login-hint">Digite seu <strong>e-mail</strong> para acesso completo, ou o <strong>código de visualização</strong> fornecido pela equipe.</div>
+    <div class="field">
+      <label>E-mail ou Código de Acesso</label>
+      <input type="text" id="login-input" placeholder="Ex: usuario@topconsuite.com" autocomplete="off"
+        onkeydown="if(event.key==='Enter') doLogin()">
+    </div>
+    <button class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;" onclick="doLogin()" id="login-btn">Entrar</button>
+    <div class="login-error" id="login-error">E-mail ou código inválido. Tente novamente.</div>
+  </div>
+</div>
 
 <div id="toast"></div>
 
@@ -844,6 +913,68 @@ let editingCentralId = null;
 let pendingDeleteType = null;
 let pendingDeleteId = null;
 let draggedCard = null;
+let draggedColumnId = null;
+
+// ===== AUTH =====
+async function doLogin() {
+  const credential = document.getElementById('login-input').value.trim();
+  const err = document.getElementById('login-error');
+  const btn = document.getElementById('login-btn');
+  err.style.display = 'none';
+  if (!credential) {
+    err.textContent = 'Digite seu e-mail ou código de acesso.';
+    err.style.display = 'block';
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = 'Verificando...';
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential })
+    });
+    if (res.ok) {
+      const { role } = await res.json();
+      sessionStorage.setItem('golive_session', JSON.stringify({ role }));
+      isViewMode = role === 'viewer';
+      document.getElementById('login-screen').style.display = 'none';
+      init();
+    } else {
+      err.textContent = 'E-mail ou código inválido. Tente novamente.';
+      err.style.display = 'block';
+      document.getElementById('login-input').focus();
+    }
+  } catch(e) {
+    err.textContent = 'Erro de conexão com o servidor. Tente novamente.';
+    err.style.display = 'block';
+  }
+  btn.disabled = false;
+  btn.textContent = 'Entrar';
+}
+
+function checkAuthAndInit() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('mode') === 'view' && params.get('data')) {
+    document.getElementById('login-screen').style.display = 'none';
+    init();
+    return;
+  }
+  const raw = sessionStorage.getItem('golive_session');
+  if (raw) {
+    try {
+      const s = JSON.parse(raw);
+      if (s.role === 'editor' || s.role === 'viewer') {
+        isViewMode = s.role === 'viewer';
+        document.getElementById('login-screen').style.display = 'none';
+        init();
+        return;
+      }
+    } catch(e) {}
+  }
+  document.getElementById('login-screen').style.display = 'flex';
+  setTimeout(() => document.getElementById('login-input').focus(), 100);
+}
 
 // ===== INIT =====
 function init() {
@@ -853,12 +984,14 @@ function init() {
     try {
       state = JSON.parse(safeB64Decode(decodeURIComponent(params.get('data'))));
     } catch(e) { showToast('Erro ao carregar dados do link.'); }
-    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
-    document.getElementById('view-badge').style.display = 'flex';
   } else {
     loadFromStorage();
     recalcAllGroupDates();
     save();
+  }
+  if (isViewMode) {
+    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+    document.getElementById('view-badge').style.display = 'flex';
   }
   render();
 }
@@ -1079,6 +1212,46 @@ function renderColumn(group, cards) {
     </div>
     ${addHtml}`;
 
+  if (!isViewMode) {
+    const header = col.querySelector('.column-header');
+    header.draggable = true;
+    header.addEventListener('dragstart', e => {
+      if (e.target.closest('button')) { e.preventDefault(); return; }
+      draggedColumnId = group.id;
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', group.id);
+      try { e.dataTransfer.setDragImage(col, 50, 20); } catch(_) {}
+      setTimeout(() => { col.style.opacity = '0.5'; }, 0);
+    });
+    header.addEventListener('dragend', () => {
+      col.style.opacity = '';
+      document.querySelectorAll('.column').forEach(c => c.classList.remove('col-drag-over'));
+      draggedColumnId = null;
+    });
+    col.addEventListener('dragover', e => {
+      if (!draggedColumnId || draggedColumnId === group.id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      document.querySelectorAll('.column').forEach(c => c.classList.remove('col-drag-over'));
+      col.classList.add('col-drag-over');
+    });
+    col.addEventListener('drop', e => {
+      if (!draggedColumnId || draggedColumnId === group.id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      document.querySelectorAll('.column').forEach(c => c.classList.remove('col-drag-over'));
+      const fromIdx = state.groups.findIndex(g => g.id === draggedColumnId);
+      const toIdx   = state.groups.findIndex(g => g.id === group.id);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [moved] = state.groups.splice(fromIdx, 1);
+        state.groups.splice(toIdx, 0, moved);
+        save(); render();
+        showToast('Coluna reordenada ✓');
+      }
+      draggedColumnId = null;
+    });
+  }
+
   return col;
 }
 
@@ -1189,6 +1362,7 @@ function onDragEnd(e) {
   draggedCard = null;
 }
 function onDragOver(e, groupId) {
+  if (draggedColumnId) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
@@ -1202,6 +1376,7 @@ function onDragLeave(e) {
   }
 }
 function onDrop(e, groupId) {
+  if (draggedColumnId) return;
   e.preventDefault();
   document.querySelectorAll('.column').forEach(c => c.classList.remove('drag-over'));
   if (!draggedCard || groupId === '__completed__') return;
@@ -1572,56 +1747,33 @@ function renderGantt() {
   const groupColorMap = {};
   state.groups.forEach((g, i) => { groupColorMap[g.id] = GANTT_COLORS[i % GANTT_COLORS.length]; });
 
-  // Sort groups by their earliest startDate
-  const sortedGroups = [...state.groups].sort((a, b) => {
-    const da = a.startDate ? new Date(a.startDate) : new Date('9999-12-31');
-    const db = b.startDate ? new Date(b.startDate) : new Date('9999-12-31');
-    return da - db;
-  });
+  // All items sorted by Go Live date (oldest first), ignoring Kanban column order
+  const sortedItems = [
+    ...state.centrals.filter(c => c.goLiveDate),
+    ...state.completed.filter(c => c.goLiveDate)
+  ].sort((a, b) => new Date(a.goLiveDate) - new Date(b.goLiveDate));
 
-  // Rows per group (sorted by date)
-  sortedGroups.forEach((g) => {
-    const color = groupColorMap[g.id];
-    const centralsInGroup = [
-      ...state.centrals.filter(c => c.groupId === g.id && c.goLiveDate),
-      ...state.completed.filter(c => c.originalGroupId === g.id && c.goLiveDate)
-    // Sort centrals by goLiveDate
-    ].sort((a, b) => new Date(a.goLiveDate) - new Date(b.goLiveDate));
+  if (sortedItems.length === 0) {
+    container.innerHTML = '<div class="gantt-empty">Nenhuma data de Go Live definida ainda.</div>';
+    return;
+  }
 
-    const groupStart = g.startDate || (centralsInGroup.length ? centralsInGroup[0].goLiveDate : null);
-    const groupEnd   = g.endDate   || (centralsInGroup.length ? centralsInGroup[centralsInGroup.length-1].goLiveDate : null);
-    const spanWidth  = groupStart && groupEnd ? Math.max(0.5, pct(groupEnd) - pct(groupStart)) : 0;
-
-    html += `<div class="gantt-row gantt-row-group">
-      <div class="gantt-name gantt-name-group" title="${escHtml(g.name)}">${escHtml(g.name)}</div>
+  sortedItems.forEach(c => {
+    const isCompleted = !!state.completed.find(x => x.id === c.id);
+    const groupId = c.groupId || c.originalGroupId;
+    const color = groupColorMap[groupId] || GANTT_COLORS[0];
+    const p = pct(c.goLiveDate);
+    html += `<div class="gantt-row">
+      <div class="gantt-name" style="color:${isCompleted ? 'var(--green)' : 'var(--navy)'};" title="${escHtml(c.name)}">
+        ${isCompleted ? '✓ ' : ''}${escHtml(c.name)}
+      </div>
       <div class="gantt-bar-track">
-        ${showToday ? `<div class="gantt-today" style="left:${todayPct}%"><span>hoje</span></div>` : ''}
-        ${groupStart ? `<div class="gantt-bar gantt-bar-group" style="left:${pct(groupStart)}%;width:${spanWidth}%;background:${color};"></div>` : ''}
+        ${showToday ? `<div class="gantt-today" style="left:${todayPct}%"></div>` : ''}
+        <div class="gantt-bar" style="left:${p}%;background:${isCompleted ? 'var(--green)' : color};" title="${escHtml(c.name)} — ${formatDate(c.goLiveDate)}">
+          ${escHtml(c.name)} <span style="opacity:0.75;font-weight:400;margin-left:4px;">${formatDate(c.goLiveDate)}</span>
+        </div>
       </div>
     </div>`;
-
-    centralsInGroup.forEach(c => {
-      const isCompleted = !!state.completed.find(x => x.id === c.id);
-      const p = pct(c.goLiveDate);
-      html += `<div class="gantt-row">
-        <div class="gantt-name" style="padding-left:18px;color:${isCompleted ? 'var(--green)' : 'var(--navy)'};" title="${escHtml(c.name)}">
-          ${isCompleted ? '✓ ' : '· '}${escHtml(c.name)}
-        </div>
-        <div class="gantt-bar-track">
-          ${showToday ? `<div class="gantt-today" style="left:${todayPct}%"></div>` : ''}
-          <div class="gantt-bar" style="left:${p}%;background:${isCompleted ? 'var(--green)' : color};" title="${escHtml(c.name)} — ${formatDate(c.goLiveDate)}">
-            ${escHtml(c.name)} <span style="opacity:0.75;font-weight:400;margin-left:4px;">${formatDate(c.goLiveDate)}</span>
-          </div>
-        </div>
-      </div>`;
-    });
-
-    if (centralsInGroup.length === 0) {
-      html += `<div class="gantt-row">
-        <div class="gantt-name" style="padding-left:18px;font-style:italic;color:var(--text3);font-size:11px;">Sem datas definidas</div>
-        <div class="gantt-bar-track"></div>
-      </div>`;
-    }
   });
 
   html += '</div>';
@@ -1653,7 +1805,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-init();
+checkAuthAndInit();
 </script>
 
 <!-- GANTT MODAL -->
