@@ -740,6 +740,15 @@
       <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
       Gerar Link
     </button>
+    <button class="btn btn-secondary admin-only" onclick="exportBackup()" title="Baixar backup dos dados em JSON">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Backup
+    </button>
+    <button class="btn btn-secondary admin-only" onclick="document.getElementById('import-input').click()" title="Restaurar dados de um backup JSON">
+      <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Restaurar
+    </button>
+    <input type="file" id="import-input" accept=".json" style="display:none" onchange="importBackup(event)">
     <div id="view-badge" class="view-badge" style="display:none;">👁 Visualização</div>
   </div>
 </header>
@@ -1583,6 +1592,43 @@ function confirmDeleteAction() {
     showToast('Central restaurada ao grupo ✓');
   }
   save(); closeModal('confirm-modal'); render();
+}
+
+// ===== BACKUP / RESTORE =====
+function exportBackup() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0,16).replace('T','_').replace(':','-');
+  a.href = url;
+  a.download = `golive-backup-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast('Backup exportado ✓');
+}
+
+function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!imported.groups || !imported.centrals) throw new Error('Formato inválido');
+      if (!confirm(`Restaurar backup? Isso substituirá os dados atuais.\n\nGrupos: ${imported.groups.length}\nCentrais: ${imported.centrals.length + (imported.completed||[]).length}`)) return;
+      state = imported;
+      if (!state.completed) state.completed = [];
+      save();
+      recalcAllGroupDates();
+      render();
+      showToast('Backup restaurado ✓');
+    } catch(err) {
+      showToast('Erro ao restaurar: arquivo inválido');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
 }
 
 // ===== SHARE LINK =====
