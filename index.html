@@ -1165,7 +1165,9 @@ async function init() {
 // ===== STORAGE (servidor) =====
 async function loadFromServer() {
   try {
-    const resp = await fetch('/api/state-get');
+    const resp = await fetch('/api/state-get', {
+      headers: sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}
+    });
     if (resp.ok) {
       const { state: serverState } = await resp.json();
       if (serverState && Array.isArray(serverState.groups)) {

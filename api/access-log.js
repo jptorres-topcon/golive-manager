@@ -1,19 +1,4 @@
-import crypto from 'crypto';
-
-function verifyJWT(token, secret) {
-  if (!token || !secret) return null;
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [h, p, sig] = parts;
-  const expected = crypto.createHmac('sha256', secret).update(`${h}.${p}`)
-    .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  if (sig !== expected) return null;
-  try {
-    const d = JSON.parse(Buffer.from(p, 'base64url').toString('utf8'));
-    if (d.exp && d.exp < Math.floor(Date.now() / 1000)) return null;
-    return d;
-  } catch { return null; }
-}
+import { verifyJWT, bearerToken } from './_jwt.js';
 
 async function kvPost(url, token, cmd) {
   const r = await fetch(url, {
@@ -23,27 +8,23 @@ async function kvPost(url, token, cmd) {
   });
   return r.json();
 }
-
-async function kvGet(key, url, token) {
-  const { result } = await kvPost(url, token, ['GET', key]);
+async function kvGet(key, u, t) {
+  const { result } = await kvPost(u, t, ['GET', key]);
   if (!result) return null;
   try { return JSON.parse(result); } catch { return null; }
 }
-
-async function kvSet(key, value, url, token) {
-  await kvPost(url, token, ['SET', key, JSON.stringify(value)]);
+async function kvSet(key, val, u, t) {
+  await kvPost(u, t, ['SET', key, JSON.stringify(val)]);
 }
 
 const ADMIN_EMAIL = 'jptorres@topconsuite.com';
 
 export default async function handler(req, res) {
-  const secret   = process.env.TOKEN_SECRET || '';
-  const kvUrl    = process.env.KV_REST_API_URL;
-  const kvToken  = process.env.KV_REST_API_TOKEN;
+  const secret  = process.env.TOKEN_SECRET || '';
+  const kvUrl   = process.env.KV_REST_API_URL;
+  const kvToken = process.env.KV_REST_API_TOKEN;
 
-  const jwt     = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
-  const decoded = verifyJWT(jwt, secret);
-
+  const decoded = verifyJWT(bearerToken(req), secret);
   if (!decoded || decoded.email !== ADMIN_EMAIL) {
     return res.status(403).json({ error: 'Restrito ao administrador.' });
   }
@@ -70,14 +51,12 @@ export default async function handler(req, res) {
       await kvSet('golive_blocklist', list, kvUrl, kvToken);
       return res.status(200).json({ ok: true });
     }
-
     if (action === 'unblock') {
       let list = (await kvGet('golive_blocklist', kvUrl, kvToken)) || [];
       list = list.filter(x => x !== e);
       await kvSet('golive_blocklist', list, kvUrl, kvToken);
       return res.status(200).json({ ok: true });
     }
-
     return res.status(400).json({ error: 'Ação inválida.' });
   }
 

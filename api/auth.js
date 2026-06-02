@@ -1,17 +1,4 @@
-import crypto from 'crypto';
-
-function base64url(str) {
-  return Buffer.from(str).toString('base64')
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-function signJWT(payload, secret) {
-  const h = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const b = base64url(JSON.stringify(payload));
-  const s = crypto.createHmac('sha256', secret).update(`${h}.${b}`)
-    .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  return `${h}.${b}.${s}`;
-}
+import { signJWT } from './_jwt.js';
 
 async function kvPost(url, token, cmd) {
   const r = await fetch(url, {
@@ -21,13 +8,11 @@ async function kvPost(url, token, cmd) {
   });
   return r.json();
 }
-
 async function kvGet(key, url, token) {
   const { result } = await kvPost(url, token, ['GET', key]);
   if (!result) return null;
   try { return JSON.parse(result); } catch { return null; }
 }
-
 async function kvSet(key, value, url, token) {
   await kvPost(url, token, ['SET', key, JSON.stringify(value)]);
 }
@@ -63,7 +48,6 @@ export default async function handler(req, res) {
   const secret   = process.env.TOKEN_SECRET || '';
   const emailLow = email.trim().toLowerCase();
 
-  // Blocklist check
   if (kvUrl && kvToken) {
     const blocklist = (await kvGet('golive_blocklist', kvUrl, kvToken)) || [];
     if (blocklist.includes(emailLow)) {
@@ -77,23 +61,18 @@ export default async function handler(req, res) {
   const viewerPassword  = (process.env.VIEWER_PASSWORD  || '').trim();
 
   let role = null;
-
   if (editors.includes(emailLow)) {
-    // Editor e-mail: aceita apenas EDITOR_PASSWORD
     if (editorPassword && password === editorPassword) role = 'editor';
   } else {
-    // Qualquer e-mail: aceita MANAGER_PASSWORD ou VIEWER_PASSWORD
-    if (managerPassword && password === managerPassword) role = 'manager';
-    else if (viewerPassword && password === viewerPassword) role = 'viewer';
+    if (managerPassword && password === managerPassword)      role = 'manager';
+    else if (viewerPassword && password === viewerPassword)   role = 'viewer';
   }
 
   if (!role) {
     return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
   }
 
-  if (kvUrl && kvToken) {
-    await logAccess(emailLow, role, kvUrl, kvToken);
-  }
+  if (kvUrl && kvToken) await logAccess(emailLow, role, kvUrl, kvToken);
 
   const now   = Math.floor(Date.now() / 1000);
   const token = secret
