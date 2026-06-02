@@ -13,10 +13,19 @@ export default function handler(req, res) {
     .map(e => e.trim().toLowerCase())
     .filter(Boolean);
 
+  const managers = (process.env.MANAGER_EMAILS || '')
+    .split(',')
+    .map(e => e.trim().toLowerCase())
+    .filter(Boolean);
+
   const viewerCode = (process.env.VIEWER_CODE || '').trim();
 
   if (editors.length > 0 && editors.includes(credential.trim().toLowerCase())) {
     return res.status(200).json({ role: 'editor' });
+  }
+
+  if (managers.length > 0 && managers.includes(credential.trim().toLowerCase())) {
+    return res.status(200).json({ role: 'manager' });
   }
 
   if (viewerCode && credential.trim() === viewerCode) {
