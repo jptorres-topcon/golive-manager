@@ -38,7 +38,7 @@ export default function handler(req, res) {
 
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host  = req.headers['x-forwarded-host'] || req.headers.host || 'golive-manager.vercel.app';
-  const url   = `${proto}://${host}?mode=view&token=${token}`;
+  const url   = `${proto}://${host}?token=${token}`;
 
   return res.status(200).json({ token, url });
 }

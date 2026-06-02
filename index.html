@@ -709,6 +709,19 @@
 
 <div id="toast"></div>
 
+<!-- LOADING OVERLAY -->
+<div id="loading-overlay" style="
+  position:fixed;inset:0;background:var(--bg);z-index:9000;
+  display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+">
+  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="animation:spin 1s linear infinite;">
+    <circle cx="24" cy="24" r="20" stroke="#1a2a5e22" stroke-width="4"/>
+    <path d="M24 4 A20 20 0 0 1 44 24" stroke="var(--navy)" stroke-width="4" stroke-linecap="round"/>
+  </svg>
+  <div style="font-size:13px;font-weight:600;color:var(--text2);">Carregando dados do servidor…</div>
+</div>
+<style>@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }</style>
+
 <!-- HEADER -->
 <header class="header">
   <div class="logo-area">
@@ -908,6 +921,7 @@
 let state = { groups: [], centrals: [], completed: [], sobreAviso: [] };
 let isViewMode = false;
 let currentRole = 'viewer';
+let sessionToken = null;
 let editingGroupId = null;
 let editingCentralId = null;
 let pendingDeleteType = null;
@@ -935,9 +949,10 @@ async function doLogin() {
       body: JSON.stringify({ credential })
     });
     if (res.ok) {
-      const { role } = await res.json();
-      currentRole = role;
-      sessionStorage.setItem('golive_session', JSON.stringify({ role }));
+      const { role, token } = await res.json();
+      currentRole  = role;
+      sessionToken = token || null;
+      sessionStorage.setItem('golive_session', JSON.stringify({ role, token: token || null }));
       isViewMode = role !== 'editor';
       document.getElementById('login-screen').style.display = 'none';
       init();
@@ -957,8 +972,8 @@ async function doLogin() {
 async function checkAuthAndInit() {
   const params = new URLSearchParams(window.location.search);
 
-  // 1) Link com token JWT (novo formato)
-  if (params.get('mode') === 'view' && params.get('token')) {
+  // 1) Link com token JWT — aceita ?token= simples ou ?mode=view&token=
+  if (params.get('token')) {
     try {
       const res = await fetch('/api/verify-token', {
         method: 'POST',
@@ -980,21 +995,15 @@ async function checkAuthAndInit() {
     return;
   }
 
-  // 2) Link legado com estado embutido na URL (?mode=view&data=...)
-  if (params.get('mode') === 'view' && params.get('data')) {
-    document.getElementById('login-screen').style.display = 'none';
-    init();
-    return;
-  }
-
-  // 3) Sessão ativa no sessionStorage
+  // 2) Sessão ativa no sessionStorage
   const raw = sessionStorage.getItem('golive_session');
   if (raw) {
     try {
       const s = JSON.parse(raw);
       if (s.role === 'editor' || s.role === 'manager' || s.role === 'viewer') {
-        currentRole = s.role;
-        isViewMode = s.role !== 'editor';
+        currentRole  = s.role;
+        sessionToken = s.token || null;
+        isViewMode   = s.role !== 'editor';
         document.getElementById('login-screen').style.display = 'none';
         init();
         return;
@@ -1007,19 +1016,8 @@ async function checkAuthAndInit() {
 }
 
 // ===== INIT =====
-function init() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('mode') === 'view' && params.get('data')) {
-    currentRole = 'viewer';
-    isViewMode = true;
-    try {
-      state = JSON.parse(safeB64Decode(decodeURIComponent(params.get('data'))));
-    } catch(e) { showToast('Erro ao carregar dados do link.'); }
-  } else {
-    loadFromStorage();
-    recalcAllGroupDates();
-    save();
-  }
+async function init() {
+  document.getElementById('loading-overlay').style.display = 'flex';
 
   // Ocultar botões admin-only para manager e viewer
   if (isViewMode) {
@@ -1044,68 +1042,96 @@ function init() {
     badge.style.display = 'none';
   }
 
+  // Carregar state do servidor
+  await loadFromServer();
+  recalcAllGroupDates();
+
+  document.getElementById('loading-overlay').style.display = 'none';
   render();
 }
 
-// ===== STORAGE =====
-function loadFromStorage() {
-  const raw = localStorage.getItem('golive_state');
-  const ver = localStorage.getItem('golive_version');
-  if (raw && ver === '2') {
-    try { state = JSON.parse(raw); return; } catch(e) {}
+// ===== STORAGE (servidor) =====
+async function loadFromServer() {
+  try {
+    const resp = await fetch('/api/state-get');
+    if (resp.ok) {
+      const { state: serverState } = await resp.json();
+      if (serverState && Array.isArray(serverState.groups)) {
+        state = serverState;
+        if (!state.sobreAviso) state.sobreAviso = [];
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn('Falha ao carregar do servidor, usando dados demo.');
   }
-  // Clear old data and reseed
-  localStorage.removeItem('golive_state');
-  localStorage.setItem('golive_version', '2');
-  // Seed demo data on first load
-  const g1 = uid(), g2 = uid(), g3 = uid();
-  state.groups = [
-    { id: g1, name: 'Longo & Vinhas',   startDate: '', endDate: '' },
-    { id: g2, name: 'Longo & Serviço',  startDate: '', endDate: '' },
-    { id: g3, name: 'Concrelongo',      startDate: '', endDate: '' },
-  ];
-  state.centrals = [
-    // Longo & Vinhas (6)
-    { id: uid(), name: 'Campo Belo',                   goLiveDate: '', groupId: g1 },
-    { id: uid(), name: 'Canteiro - Santana da Vargem', goLiveDate: '', groupId: g1 },
-    { id: uid(), name: 'Varginha',                     goLiveDate: '', groupId: g1 },
-    { id: uid(), name: 'Poços de Caldas',              goLiveDate: '', groupId: g1 },
-    { id: uid(), name: 'Lavras',                       goLiveDate: '', groupId: g1 },
-    { id: uid(), name: 'Ilicínea',                     goLiveDate: '', groupId: g1 },
-    // Longo & Serviço (1) + Concremax (1) — mesmo ambiente Concrelongo
-    { id: uid(), name: 'Três Lagoas',                  goLiveDate: '', groupId: g2 },
-    { id: uid(), name: 'Concremax',                    goLiveDate: '', groupId: g2 },
-    // Concrelongo (21)
-    { id: uid(), name: 'Alfenas',                      goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Americana',                    goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Amparo',                       goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Arthur Nogueira',              goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Barueri',                      goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Cajamar',                      goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Embu das Artes',               goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Espírito Santo de Pinhal',     goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Extrema',                      goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Hortolândia',                  goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Itupeva',                      goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Jacutinga',                    goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Mogi Mirim',                   goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Paulínia',                     goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Poços de Caldas',              goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Socorro',                      goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Valinhos',                     goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Inocência',                    goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Canteiro Raposo',              goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Canteiro Prologis - Cotia',    goLiveDate: '', groupId: g3 },
-    { id: uid(), name: 'Canteiro Guarulhos/Reimix',    goLiveDate: '', groupId: g3 },
-  ];
-  state.completed = [];
-  save();
-  localStorage.setItem('golive_version', '2');
+  seedDemoData();
 }
 
-function save() {
-  // viewer via link compartilhado não persiste; editor e manager persistem
-  if (currentRole !== 'viewer') localStorage.setItem('golive_state', JSON.stringify(state));
+function seedDemoData() {
+  const g1 = uid(), g2 = uid(), g3 = uid();
+  state = {
+    sobreAviso: [],
+    completed: [],
+    groups: [
+      { id: g1, name: 'Longo & Vinhas',  startDate: '', endDate: '' },
+      { id: g2, name: 'Longo & Serviço', startDate: '', endDate: '' },
+      { id: g3, name: 'Concrelongo',     startDate: '', endDate: '' },
+    ],
+    centrals: [
+      // Longo & Vinhas (6)
+      { id: uid(), name: 'Campo Belo',                   goLiveDate: '', groupId: g1 },
+      { id: uid(), name: 'Canteiro - Santana da Vargem', goLiveDate: '', groupId: g1 },
+      { id: uid(), name: 'Varginha',                     goLiveDate: '', groupId: g1 },
+      { id: uid(), name: 'Poços de Caldas',              goLiveDate: '', groupId: g1 },
+      { id: uid(), name: 'Lavras',                       goLiveDate: '', groupId: g1 },
+      { id: uid(), name: 'Ilicínea',                     goLiveDate: '', groupId: g1 },
+      // Longo & Serviço
+      { id: uid(), name: 'Três Lagoas',                  goLiveDate: '', groupId: g2 },
+      { id: uid(), name: 'Concremax',                    goLiveDate: '', groupId: g2 },
+      // Concrelongo (21)
+      { id: uid(), name: 'Alfenas',                      goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Americana',                    goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Amparo',                       goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Arthur Nogueira',              goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Barueri',                      goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Cajamar',                      goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Embu das Artes',               goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Espírito Santo de Pinhal',     goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Extrema',                      goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Hortolândia',                  goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Itupeva',                      goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Jacutinga',                    goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Mogi Mirim',                   goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Paulínia',                     goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Poços de Caldas (CL)',         goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Socorro',                      goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Valinhos',                     goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Inocência',                    goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Canteiro Raposo',              goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Canteiro Prologis - Cotia',    goLiveDate: '', groupId: g3 },
+      { id: uid(), name: 'Canteiro Guarulhos/Reimix',    goLiveDate: '', groupId: g3 },
+    ],
+  };
+  // Salva os dados demo para o servidor (editor only)
+  save();
+}
+
+async function save() {
+  if (currentRole !== 'editor') return;
+  if (!sessionToken) return;
+  try {
+    await fetch('/api/state-save', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${sessionToken}`,
+      },
+      body: JSON.stringify({ state }),
+    });
+  } catch (e) {
+    showToast('⚠ Erro ao salvar dados no servidor');
+  }
 }
 
 // ===== HELPERS =====
@@ -1675,9 +1701,6 @@ function importBackup(event) {
 }
 
 // ===== SHARE LINK =====
-function safeB64Decode(str) {
-  return decodeURIComponent(Array.from(atob(str), c => '%' + c.charCodeAt(0).toString(16).padStart(2,'0')).join(''));
-}
 
 async function generateShareLink() {
   const urlEl  = document.getElementById('share-url');
