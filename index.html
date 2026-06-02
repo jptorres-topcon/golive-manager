@@ -1183,6 +1183,9 @@ async function loadFromServer() {
 }
 
 function seedDemoData() {
+  // NEVER SAVE TO SERVER - LOCAL FALLBACK ONLY
+  // Esta função é APENAS para exibição local quando o KV não está acessível.
+  // Não chama save() em hipótese alguma. Não faz POST para /api/state-save.
   const g1 = uid(), g2 = uid(), g3 = uid();
   state = {
     sobreAviso: [],
@@ -1227,7 +1230,8 @@ function seedDemoData() {
       { id: uid(), name: 'Canteiro Guarulhos/Reimix',    goLiveDate: '', groupId: g3 },
     ],
   };
-  // NÃO salva automaticamente — dados demo são só fallback local quando KV falha
+  // NEVER SAVE TO SERVER - LOCAL FALLBACK ONLY
+  // NÃO chamar save() aqui — nunca gravar dados demo no KV
 }
 
 async function save() {

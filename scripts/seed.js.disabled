@@ -59,9 +59,7 @@ console.log('  URL:', process.env.KV_REST_API_URL);
 await kv.set('golive_state_concrelongo', JSON.stringify(state));
 console.log('✅ Dados gravados com sucesso!');
 
-// Verificação — @vercel/kv já retorna o valor deserializado
-const raw = await kv.get('golive_state_concrelongo');
-// raw pode ser string JSON ou objeto, dependendo de como foi armazenado
+const raw  = await kv.get('golive_state_concrelongo');
 const saved = typeof raw === 'string' ? JSON.parse(raw) : raw;
 console.log(`✅ Verificado no KV:`);
 console.log(`   Grupos   : ${saved.groups.length}`);
