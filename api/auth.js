@@ -6,48 +6,99 @@ function base64url(str) {
 }
 
 function signJWT(payload, secret) {
-  const header = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-  const body   = base64url(JSON.stringify(payload));
-  const sig = crypto
-    .createHmac('sha256', secret)
-    .update(`${header}.${body}`)
-    .digest('base64')
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-  return `${header}.${body}.${sig}`;
+  const h = base64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const b = base64url(JSON.stringify(payload));
+  const s = crypto.createHmac('sha256', secret).update(`${h}.${b}`)
+    .digest('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  return `${h}.${b}.${s}`;
 }
 
-export default function handler(req, res) {
+async function kvPost(url, token, cmd) {
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(cmd),
+  });
+  return r.json();
+}
+
+async function kvGet(key, url, token) {
+  const { result } = await kvPost(url, token, ['GET', key]);
+  if (!result) return null;
+  try { return JSON.parse(result); } catch { return null; }
+}
+
+async function kvSet(key, value, url, token) {
+  await kvPost(url, token, ['SET', key, JSON.stringify(value)]);
+}
+
+async function logAccess(email, role, kvUrl, kvToken) {
+  try {
+    const logs = (await kvGet('golive_logins', kvUrl, kvToken)) || [];
+    const now  = new Date().toISOString();
+    const idx  = logs.findIndex(e => e.email === email);
+    if (idx >= 0) {
+      logs[idx].lastAccess = now;
+      logs[idx].count      = (logs[idx].count || 1) + 1;
+      logs[idx].role       = role;
+    } else {
+      logs.push({ email, role, firstAccess: now, lastAccess: now, count: 1 });
+    }
+    await kvSet('golive_logins', logs, kvUrl, kvToken);
+  } catch (_) {}
+}
+
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { credential } = req.body || {};
-  if (!credential || typeof credential !== 'string') {
-    return res.status(400).json({ error: 'Credential required' });
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
   }
 
-  const editors = (process.env.EDITOR_EMAILS || '')
-    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+  const kvUrl    = process.env.KV_REST_API_URL;
+  const kvToken  = process.env.KV_REST_API_TOKEN;
+  const secret   = process.env.TOKEN_SECRET || '';
+  const emailLow = email.trim().toLowerCase();
 
-  const managers = (process.env.MANAGER_EMAILS || '')
-    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+  // Blocklist check
+  if (kvUrl && kvToken) {
+    const blocklist = (await kvGet('golive_blocklist', kvUrl, kvToken)) || [];
+    if (blocklist.includes(emailLow)) {
+      return res.status(401).json({ error: 'Acesso negado para este e-mail.' });
+    }
+  }
 
-  const viewerCode = (process.env.VIEWER_CODE || '').trim();
-  const secret     = process.env.TOKEN_SECRET   || '';
+  const editors         = (process.env.EDITOR_EMAILS    || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+  const editorPassword  = (process.env.EDITOR_PASSWORD  || '').trim();
+  const managerPassword = (process.env.MANAGER_PASSWORD || '').trim();
+  const viewerPassword  = (process.env.VIEWER_PASSWORD  || '').trim();
 
   let role = null;
-  if (editors.includes(credential.trim().toLowerCase()))  role = 'editor';
-  else if (managers.includes(credential.trim().toLowerCase())) role = 'manager';
-  else if (viewerCode && credential.trim() === viewerCode)     role = 'viewer';
+
+  if (editors.includes(emailLow)) {
+    // Editor e-mail: aceita apenas EDITOR_PASSWORD
+    if (editorPassword && password === editorPassword) role = 'editor';
+  } else {
+    // Qualquer e-mail: aceita MANAGER_PASSWORD ou VIEWER_PASSWORD
+    if (managerPassword && password === managerPassword) role = 'manager';
+    else if (viewerPassword && password === viewerPassword) role = 'viewer';
+  }
 
   if (!role) {
-    return res.status(401).json({ error: 'Invalid credential' });
+    return res.status(401).json({ error: 'E-mail ou senha incorretos.' });
+  }
+
+  if (kvUrl && kvToken) {
+    await logAccess(emailLow, role, kvUrl, kvToken);
   }
 
   const now   = Math.floor(Date.now() / 1000);
   const token = secret
-    ? signJWT({ role, iat: now, exp: now + 24 * 60 * 60 }, secret)
+    ? signJWT({ email: emailLow, role, iat: now, exp: now + 24 * 60 * 60 }, secret)
     : null;
 
-  return res.status(200).json({ role, token });
+  return res.status(200).json({ role, token, email: emailLow });
 }
