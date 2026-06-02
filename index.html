@@ -1113,8 +1113,7 @@ function seedDemoData() {
       { id: uid(), name: 'Canteiro Guarulhos/Reimix',    goLiveDate: '', groupId: g3 },
     ],
   };
-  // Salva os dados demo para o servidor (editor only)
-  save();
+  // NÃO salva automaticamente — dados demo são só fallback local quando KV falha
 }
 
 async function save() {
