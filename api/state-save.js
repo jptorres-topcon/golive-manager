@@ -47,11 +47,11 @@ export default async function handler(req, res) {
     };
 
     // 3) Resolver conflitos de transição entre arrays:
-    //    Se o cliente enviou um id em incoming.completed → remover de centrals (completeCentral)
-    //    Se o cliente enviou um id em incoming.centrals  → remover de completed (restaurar)
-    const incomingCompletedIds = new Set((incoming.completed || []).map(c => c.id));
-    const incomingCentralIds   = new Set((incoming.centrals  || []).map(c => c.id));
-    merged.centrals  = merged.centrals.filter(c => !incomingCompletedIds.has(c.id));
+    //    completed tem prioridade: qualquer id em merged.completed (KV + incoming) sai de centrals
+    //    restauração: se explicitamente reenviado em incoming.centrals, sai de completed
+    const mergedCompletedIds = new Set(merged.completed.map(c => c.id));
+    const incomingCentralIds = new Set((incoming.centrals || []).map(c => c.id));
+    merged.centrals  = merged.centrals.filter(c => !mergedCompletedIds.has(c.id));
     merged.completed = merged.completed.filter(c => !incomingCentralIds.has(c.id));
 
     // 4) Gravar merged
